@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { DM_Sans, DM_Serif_Display } from 'next/font/google'
+import { Providers } from './providers'
 import './globals.css'
 
 const dmSans = DM_Sans({
@@ -26,8 +27,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${dmSerif.variable}`}>
-      <body>{children}</body>
+    <html lang="en" className={`${dmSans.variable} ${dmSerif.variable} light`}>
+      <body className="font-sans antialiased">
+        <Providers>
+          {children}
+        </Providers>
+      </body>
     </html>
   )
 }

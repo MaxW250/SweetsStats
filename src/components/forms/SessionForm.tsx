@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { StreamSession } from '@/types'
 
 interface SessionFormProps {
@@ -10,6 +11,7 @@ interface SessionFormProps {
 }
 
 export function SessionForm({ onSubmit, onSuccess, isLoading = false }: SessionFormProps) {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     session_date: new Date().toISOString().split('T')[0],
     start_time: '12:00',
@@ -42,8 +44,9 @@ export function SessionForm({ onSubmit, onSuccess, isLoading = false }: SessionF
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         })
-        if (response.ok && onSuccess) {
-          onSuccess()
+        if (response.ok) {
+          router.refresh()
+          if (onSuccess) onSuccess()
         }
       } catch (error) {
         console.error(error)
