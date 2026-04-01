@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;700&display=swap');
+
+:root {
+  --font-dm-serif: 'DM Serif Display', serif;
+  --font-dm-sans: 'DM Sans', sans-serif;
+  --coral: #F97B6B;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  @apply box-border;
+}
+
+body {
+  @apply bg-white text-gray-900 font-sans;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-serif;
+}
+
+input, textarea, select {
+  @apply font-sans;
+}
