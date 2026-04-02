@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { supabaseServer } from '@/lib/supabase-server'
-import { ExternalLink, Brain, Calendar, Clock, TrendingUp, Coffee, Sparkles, Activity } from 'lucide-react'
+import { ExternalLink, Brain, Calendar, Clock, TrendingUp, Coffee, Sparkles, Activity, Star } from 'lucide-react'
 
 // Helper: sparkline path from array of numbers
 function sparklinePath(values: number[], w = 120, h = 32): string {
@@ -36,8 +36,7 @@ export default async function IntelligencePage() {
   const earnings = earningsRes.data ?? []
   const ofData = ofRes.data ?? []
 
-  // --- Winning formula ---
-  // Best day of week by avg USD
+  // --- Winning formula --- (uses all-time sessions)
   const byDow: Record<string, number[]> = {}
   sessions.forEach((s: any) => {
     if (!s.total_usd_session) return
@@ -86,11 +85,10 @@ export default async function IntelligencePage() {
   const now = new Date()
   const oneWeekAgo = new Date(now); oneWeekAgo.setDate(now.getDate() - 7)
   const fourWeeksAgo = new Date(now); fourWeeksAgo.setDate(now.getDate() - 28)
-  const thisWeekMins = sessions
-    .filter((s: any) => new Date(s.session_date) >= oneWeekAgo)
-    .reduce((a: number, s: any) => a + (s.stream_length_minutes ?? 0), 0)
+  const thisWeekSessions = sessions.filter((s: any) => new Date(s.session_date + 'T12:00:00') >= oneWeekAgo)
+  const thisWeekMins = thisWeekSessions.reduce((a: number, s: any) => a + (s.stream_length_minutes ?? 0), 0)
   const prevSessions = sessions.filter((s: any) => {
-    const d = new Date(s.session_date)
+    const d = new Date(s.session_date + 'T12:00:00')
     return d >= fourWeeksAgo && d < oneWeekAgo
   })
   const prevWeekAvgMins = prevSessions.length > 0
@@ -124,6 +122,11 @@ export default async function IntelligencePage() {
   const ofBoostPct = ofStreamAvg !== null && ofNoStreamAvg !== null && ofNoStreamAvg > 0
     ? Math.round(((ofStreamAvg - ofNoStreamAvg) / ofNoStreamAvg) * 100) : null
 
+  // --- Best conversion day: stream day with most OF new subs ---
+  const bestConversionDay = ofStream.length > 0
+    ? ofStream.reduce((best: any, e: any) => (e.new_subs > (best?.new_subs ?? 0) ? e : best), null)
+    : null
+
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto">
       <div>
@@ -133,9 +136,14 @@ export default async function IntelligencePage() {
 
       {/* Winning formula */}
       <section>
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles size={15} className="text-brand" />
-          <h2 className="text-sm font-semibold text-gray-700">Your winning formula</h2>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Sparkles size={15} className="text-brand" />
+            <h2 className="text-sm font-semibold text-gray-700">Your winning formula</h2>
+          </div>
+          <span className="text-[11px] text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
+            Based on all {sessions.length} sessions (all time)
+          </span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <InsightCard
@@ -163,80 +171,136 @@ export default async function IntelligencePage() {
       </section>
 
       {/* OF boost + cheapest day off */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {ofBoostPct !== null ? (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Activity size={15} className="text-purple-500" />
-              <h3 className="text-sm font-semibold text-gray-700">Subs vs streams</h3>
-            </div>
-            <p className="text-3xl font-bold text-gray-900">{ofBoostPct >= 0 ? '+' : ''}{ofBoostPct}%</p>
-            <p className="text-sm text-gray-500 mt-1">
-              {ofBoostPct >= 0
-                ? `You get ${ofBoostPct}% more OF subs on stream days`
-                : `${Math.abs(ofBoostPct)}% fewer OF subs on stream days`}
-            </p>
-            <div className="flex gap-4 mt-3 text-xs text-gray-400">
-              <span>Stream days: <strong className="text-gray-700">{ofStreamAvg?.toFixed(1)} avg</strong></span>
-              <span>Off days: <strong className="text-gray-700">{ofNoStreamAvg?.toFixed(1)} avg</strong></span>
-            </div>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity size={15} className="text-purple-500" />
+            <h2 className="text-sm font-semibold text-gray-700">OnlyFans & streaming</h2>
           </div>
-        ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 opacity-60">
-            <div className="flex items-center gap-2 mb-2">
-              <Activity size={15} className="text-purple-400" />
-              <h3 className="text-sm font-semibold text-gray-500">Subs vs streams</h3>
+          {ofData.length > 0 && (
+            <span className="text-[11px] text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
+              Based on all {ofData.length} OF entries (all time)
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {ofBoostPct !== null ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Activity size={15} className="text-purple-500" />
+                <h3 className="text-sm font-semibold text-gray-700">Subs vs streams</h3>
+              </div>
+              <p className="text-3xl font-bold text-gray-900">{ofBoostPct >= 0 ? '+' : ''}{ofBoostPct}%</p>
+              <p className="text-sm text-gray-500 mt-1">
+                {ofBoostPct >= 0
+                  ? `You get ${ofBoostPct}% more OF subs on stream days`
+                  : `${Math.abs(ofBoostPct)}% fewer OF subs on stream days`}
+              </p>
+              <div className="flex gap-4 mt-3 text-xs text-gray-400">
+                <span>Stream days ({ofStream.length}): <strong className="text-gray-700">{ofStreamAvg?.toFixed(1)} avg subs</strong></span>
+                <span>Off days ({ofNoStream.length}): <strong className="text-gray-700">{ofNoStreamAvg?.toFixed(1)} avg</strong></span>
+              </div>
             </div>
-            <p className="text-sm text-gray-400">Add OnlyFans data to see stream impact.</p>
-          </div>
-        )}
+          ) : (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 opacity-60">
+              <div className="flex items-center gap-2 mb-2">
+                <Activity size={15} className="text-purple-400" />
+                <h3 className="text-sm font-semibold text-gray-500">Subs vs streams</h3>
+              </div>
+              <p className="text-sm text-gray-400">Add OnlyFans data to see stream impact.</p>
+            </div>
+          )}
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center gap-2 mb-3">
+          {/* Best conversion day */}
+          {bestConversionDay ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Star size={15} className="text-amber-500" />
+                <h3 className="text-sm font-semibold text-gray-700">Best conversion day</h3>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">
+                {new Date(bestConversionDay.entry_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                <strong className="text-brand">{bestConversionDay.new_subs} new subs</strong> — best OF day after a CB stream
+              </p>
+              {bestConversionDay.revenue_usd > 0 && (
+                <p className="text-xs text-gray-400 mt-1">${Number(bestConversionDay.revenue_usd).toFixed(2)} OF revenue that day</p>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Star size={15} className="text-amber-400" />
+                <h3 className="text-sm font-semibold text-gray-700">Best conversion day</h3>
+              </div>
+              <p className="text-sm text-gray-400">Log OF entries with "streamed" checked to see your best conversion day.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Cheapest day off */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
             <Coffee size={15} className="text-amber-500" />
             <h3 className="text-sm font-semibold text-gray-700">Best rest day</h3>
           </div>
-          {cheapestDow ? (
-            <>
-              <p className="text-2xl font-bold text-gray-900">{cheapestDow.day}</p>
-              <p className="text-sm text-gray-500 mt-1">
-                Taking {cheapestDow.day}s off costs avg ${cheapestDow.avg.toFixed(2)} — the cheapest day off
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-gray-400">Not enough session data yet.</p>
-          )}
+          <span className="text-[11px] text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
+            All-time session data
+          </span>
         </div>
+        {cheapestDow ? (
+          <>
+            <p className="text-2xl font-bold text-gray-900">{cheapestDow.day}</p>
+            <p className="text-sm text-gray-500 mt-1">
+              Taking {cheapestDow.day}s off costs avg ${cheapestDow.avg.toFixed(2)} — the cheapest day off
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-gray-400">Not enough session data yet.</p>
+        )}
       </div>
 
       {/* Burnout + stability */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Brain size={15} className="text-red-400" />
-            <h3 className="text-sm font-semibold text-gray-700">Burnout index</h3>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Brain size={15} className="text-red-400" />
+              <h3 className="text-sm font-semibold text-gray-700">Burnout index</h3>
+            </div>
+            <span className="text-[11px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
+              This week vs 3-week avg
+            </span>
           </div>
           <div className={`inline-flex items-center gap-1.5 text-sm font-bold px-3 py-1.5 rounded-xl ${burnoutColor}`}>
             {burnoutStatus}
           </div>
           <p className="text-sm text-gray-500 mt-2">
             {thisWeekMins > 0
-              ? `${Math.round(thisWeekMins / 60)}h this week vs ${Math.round(prevWeekAvgMins / 60)}h weekly avg`
+              ? `${Math.round(thisWeekMins / 60)}h this week vs ${Math.round(prevWeekAvgMins / 60)}h weekly avg (${thisWeekSessions.length} sessions)`
               : 'No streams logged this week'}
           </p>
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp size={15} className="text-brand" />
-            <h3 className="text-sm font-semibold text-gray-700">Income stability</h3>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={15} className="text-brand" />
+              <h3 className="text-sm font-semibold text-gray-700">Income stability</h3>
+            </div>
+            <span className="text-[11px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
+              Last 12 weeks
+            </span>
           </div>
           <div className="flex items-center gap-4">
             <div>
               <div className={`inline-flex items-center text-sm font-bold px-3 py-1.5 rounded-xl ${stabilityColor}`}>
                 {stability}
               </div>
-              <p className="text-xs text-gray-400 mt-2">variance score · last 12 weeks</p>
+              <p className="text-xs text-gray-400 mt-2">variance score</p>
             </div>
             {sparkPath && (
               <svg width={120} height={32} className="shrink-0">

@@ -7,9 +7,8 @@ import { SessionForm } from '@/components/forms/SessionForm'
 import { Plus, TrendingDown, Trophy, DollarSign, Users } from 'lucide-react'
 import type { StreamSession } from '@/types'
 
-type DepthFilter = 'this-week' | 'last-week' | 'this-month' | 'all'
+type DepthFilter = 'this-week' | 'last-week' | 'this-month' | 'last-month' | 'all' | 'custom'
 
-// Returns Mon–Sun of the current week as ISO date strings
 function getThisWeekRange() {
   const now = new Date()
   const day = now.getDay()
@@ -39,6 +38,13 @@ function getThisMonthRange() {
   return { start: first.toISOString().split('T')[0], end: last.toISOString().split('T')[0] }
 }
 
+function getLastMonthRange() {
+  const now = new Date()
+  const first = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const last = new Date(now.getFullYear(), now.getMonth(), 0)
+  return { start: first.toISOString().split('T')[0], end: last.toISOString().split('T')[0] }
+}
+
 function computeStats(list: StreamSession[]) {
   if (!list.length) return null
   const sorted = [...list].sort((a, b) => (b.total_usd_session ?? 0) - (a.total_usd_session ?? 0))
@@ -58,6 +64,12 @@ export default function SessionsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [depthFilter, setDepthFilter] = useState<DepthFilter>('this-month')
+
+  // Custom date range state
+  const [customStart, setCustomStart] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 29); return d.toISOString().slice(0, 10)
+  })
+  const [customEnd, setCustomEnd] = useState(() => new Date().toISOString().slice(0, 10))
 
   useEffect(() => { fetchSessions() }, [])
 
@@ -80,36 +92,57 @@ export default function SessionsPage() {
     setExpandedId(null)
   }
 
-  const { start: weekStart, end: weekEnd } = getThisWeekRange()
-  const { start: lastWeekStart, end: lastWeekEnd } = getLastWeekRange()
-  const { start: monthStart, end: monthEnd } = getThisMonthRange()
+  const ranges = useMemo(() => ({
+    thisWeek: getThisWeekRange(),
+    lastWeek: getLastWeekRange(),
+    thisMonth: getThisMonthRange(),
+    lastMonth: getLastMonthRange(),
+  }), [])
 
-  const thisWeek = useMemo(() => sessions.filter((s) => s.session_date >= weekStart && s.session_date <= weekEnd), [sessions, weekStart, weekEnd])
-  const lastWeek = useMemo(() => sessions.filter((s) => s.session_date >= lastWeekStart && s.session_date <= lastWeekEnd), [sessions, lastWeekStart, lastWeekEnd])
-  const thisMonth = useMemo(() => sessions.filter((s) => s.session_date >= monthStart && s.session_date <= monthEnd), [sessions, monthStart, monthEnd])
-
-  const ws = useMemo(() => computeStats(thisWeek), [thisWeek])
-  const lws = useMemo(() => computeStats(lastWeek), [lastWeek])
-  const ms = useMemo(() => computeStats(thisMonth), [thisMonth])
-
-  // Filtered list for the session rows
-  const filteredSessions = useMemo(() => {
+  // Get the date range for the currently selected filter
+  const activeRange = useMemo(() => {
     switch (depthFilter) {
-      case 'this-week': return sessions.filter((s) => s.session_date >= weekStart && s.session_date <= weekEnd)
-      case 'last-week': return sessions.filter((s) => s.session_date >= lastWeekStart && s.session_date <= lastWeekEnd)
-      case 'this-month': return sessions.filter((s) => s.session_date >= monthStart && s.session_date <= monthEnd)
-      default: return sessions
+      case 'this-week': return ranges.thisWeek
+      case 'last-week': return ranges.lastWeek
+      case 'this-month': return ranges.thisMonth
+      case 'last-month': return ranges.lastMonth
+      case 'custom': return { start: customStart, end: customEnd }
+      default: return null // all
     }
-  }, [sessions, depthFilter, weekStart, weekEnd, lastWeekStart, lastWeekEnd, monthStart, monthEnd])
+  }, [depthFilter, ranges, customStart, customEnd])
+
+  // Sessions filtered to active range
+  const filteredSessions = useMemo(() => {
+    if (!activeRange) return sessions
+    return sessions.filter((s) => s.session_date >= activeRange.start && s.session_date <= activeRange.end)
+  }, [sessions, activeRange])
+
+  const activeStats = useMemo(() => computeStats(filteredSessions), [filteredSessions])
+
+  // Label for the stat block title
+  const statBlockLabel = useMemo(() => {
+    switch (depthFilter) {
+      case 'this-week': return 'This week'
+      case 'last-week': return 'Last week'
+      case 'this-month': return 'This month'
+      case 'last-month': return 'Last month'
+      case 'custom': return `${customStart} — ${customEnd}`
+      default: return 'All time'
+    }
+  }, [depthFilter, customStart, customEnd])
+
+  const { start: weekStart, end: weekEnd } = ranges.thisWeek
 
   const sd = (d: string) =>
     new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
-  const depthTabs: { key: DepthFilter; label: string; count: number }[] = [
-    { key: 'this-week', label: 'This week', count: thisWeek.length },
-    { key: 'last-week', label: 'Last week', count: lastWeek.length },
-    { key: 'this-month', label: 'This month', count: thisMonth.length },
-    { key: 'all', label: 'All', count: sessions.length },
+  const tabs: { key: DepthFilter; label: string }[] = [
+    { key: 'this-week', label: 'This week' },
+    { key: 'last-week', label: 'Last week' },
+    { key: 'this-month', label: 'This month' },
+    { key: 'last-month', label: 'Last month' },
+    { key: 'all', label: 'All time' },
+    { key: 'custom', label: 'Custom' },
   ]
 
   return (
@@ -118,7 +151,7 @@ export default function SessionsPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Sessions</h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            {sessions.length} total &middot; {thisWeek.length} this week
+            {sessions.length} total &middot; {filteredSessions.length} in view
           </p>
         </div>
         <button
@@ -129,83 +162,88 @@ export default function SessionsPage() {
         </button>
       </div>
 
-      {/* This week summary */}
-      {ws && (
-        <div>
-          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">This week</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MiniCard icon={<Trophy size={13} className="text-amber-400" />} label="Best day" value={sd(ws.best.session_date)} sub={formatUSD(ws.best.total_usd_session)} subColor="text-brand" />
-            <MiniCard icon={<TrendingDown size={13} className="text-gray-300" />} label="Lowest day" value={sd(ws.worst.session_date)} sub={formatUSD(ws.worst.total_usd_session)} subColor="text-gray-400" />
-            <MiniCard icon={<DollarSign size={13} className="text-green-400" />} label="Week total" value={formatUSD(ws.totalUSD)} sub={`${ws.count} sessions`} subColor="text-gray-400" />
-            <MiniCard icon={<Users size={13} className="text-blue-400" />} label="Avg viewers" value={String(ws.avgViewers)} sub={formatMinutes(ws.totalMins) + ' streamed'} subColor="text-gray-400" />
-          </div>
-        </div>
-      )}
-
-      {/* Last week summary */}
-      {lws && (
-        <div>
-          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Last week</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MiniCard icon={<Trophy size={13} className="text-amber-300" />} label="Best day" value={sd(lws.best.session_date)} sub={formatUSD(lws.best.total_usd_session)} subColor="text-gray-600" />
-            <MiniCard icon={<TrendingDown size={13} className="text-gray-200" />} label="Lowest day" value={sd(lws.worst.session_date)} sub={formatUSD(lws.worst.total_usd_session)} subColor="text-gray-400" />
-            <MiniCard icon={<DollarSign size={13} className="text-emerald-300" />} label="Week total" value={formatUSD(lws.totalUSD)} sub={`${lws.count} sessions`} subColor="text-gray-400" />
-            <MiniCard icon={<Users size={13} className="text-blue-300" />} label="Avg viewers" value={String(lws.avgViewers)} sub={formatMinutes(lws.totalMins) + ' streamed'} subColor="text-gray-400" />
-          </div>
-        </div>
-      )}
-
-      {/* This month summary */}
-      {ms && (
-        <div>
-          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">This month</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MiniCard icon={<Trophy size={13} className="text-amber-400" />} label="Best day" value={sd(ms.best.session_date)} sub={formatUSD(ms.best.total_usd_session)} subColor="text-brand" />
-            <MiniCard icon={<TrendingDown size={13} className="text-gray-300" />} label="Lowest day" value={sd(ms.worst.session_date)} sub={formatUSD(ms.worst.total_usd_session)} subColor="text-gray-400" />
-            <MiniCard icon={<DollarSign size={13} className="text-green-400" />} label="Month total" value={formatUSD(ms.totalUSD)} sub={`${ms.count} sessions`} subColor="text-gray-400" />
-            <MiniCard icon={<Users size={13} className="text-blue-400" />} label="Avg viewers" value={String(ms.avgViewers)} sub={formatMinutes(ms.totalMins) + ' streamed'} subColor="text-gray-400" />
-          </div>
-        </div>
-      )}
-
-      {/* Depth filter tabs + session list */}
+      {/* Tabs + filter */}
       <div className="space-y-3">
-        <div className="flex gap-1 bg-gray-100/70 p-1 rounded-xl w-fit">
-          {depthTabs.map((t) => (
-            <button key={t.key} onClick={() => setDepthFilter(t.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                depthFilter === t.key ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              {t.label}
-              {t.count > 0 && (
-                <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                  depthFilter === t.key ? 'bg-brand text-white' : 'bg-gray-200 text-gray-500'
-                }`}>{t.count}</span>
-              )}
-            </button>
-          ))}
+        <div className="flex gap-1 bg-gray-100/70 p-1 rounded-xl w-fit flex-wrap">
+          {tabs.map((t) => {
+            const count = (() => {
+              if (t.key === 'all') return sessions.length
+              if (t.key === 'custom') return depthFilter === 'custom' ? filteredSessions.length : null
+              const r = t.key === 'this-week' ? ranges.thisWeek
+                : t.key === 'last-week' ? ranges.lastWeek
+                : t.key === 'this-month' ? ranges.thisMonth
+                : ranges.lastMonth
+              return sessions.filter((s) => s.session_date >= r.start && s.session_date <= r.end).length
+            })()
+            return (
+              <button key={t.key} onClick={() => setDepthFilter(t.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  depthFilter === t.key ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                {t.label}
+                {count != null && count > 0 && (
+                  <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    depthFilter === t.key ? 'bg-brand text-white' : 'bg-gray-200 text-gray-500'
+                  }`}>{count}</span>
+                )}
+              </button>
+            )
+          })}
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          {loading ? (
-            <div className="py-16 text-center text-sm text-gray-400">Loading...</div>
-          ) : filteredSessions.length === 0 ? (
-            <div className="py-16 text-center text-sm text-gray-400">No sessions in this period.</div>
-          ) : (
-            <div className="divide-y divide-gray-50">
-              {filteredSessions.map((s) => (
-                <SessionRow
-                  key={s.id}
-                  session={s}
-                  expanded={expandedId === s.id}
-                  onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
-                  onUpdateNotes={handleUpdateNotes}
-                  isThisWeek={s.session_date >= weekStart && s.session_date <= weekEnd}
-                />
-              ))}
+        {/* Custom date pickers */}
+        {depthFilter === 'custom' && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
+              <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" />
             </div>
-          )}
+            <span className="text-gray-400 text-sm mt-5">—</span>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
+              <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Single stat block — synced to active tab */}
+      {activeStats && (
+        <div>
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">{statBlockLabel}</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <MiniCard icon={<Trophy size={13} className="text-amber-400" />} label="Best day" value={sd(activeStats.best.session_date)} sub={formatUSD(activeStats.best.total_usd_session)} subColor="text-brand" />
+            <MiniCard icon={<TrendingDown size={13} className="text-gray-300" />} label="Lowest day" value={sd(activeStats.worst.session_date)} sub={formatUSD(activeStats.worst.total_usd_session)} subColor="text-gray-400" />
+            <MiniCard icon={<DollarSign size={13} className="text-green-400" />} label="Total earned" value={formatUSD(activeStats.totalUSD)} sub={`${activeStats.count} sessions`} subColor="text-gray-400" />
+            <MiniCard icon={<Users size={13} className="text-blue-400" />} label="Avg viewers" value={String(activeStats.avgViewers)} sub={formatMinutes(activeStats.totalMins) + ' streamed'} subColor="text-gray-400" />
+          </div>
         </div>
+      )}
+
+      {/* Session list */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="py-16 text-center text-sm text-gray-400">Loading...</div>
+        ) : filteredSessions.length === 0 ? (
+          <div className="py-16 text-center text-sm text-gray-400">No sessions in this period.</div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {[...filteredSessions]
+              .sort((a, b) => b.session_date.localeCompare(a.session_date))
+              .map((s) => (
+              <SessionRow
+                key={s.id}
+                session={s}
+                expanded={expandedId === s.id}
+                onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
+                onUpdateNotes={handleUpdateNotes}
+                isThisWeek={s.session_date >= weekStart && s.session_date <= weekEnd}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <SlideOver isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title="Add Session">
@@ -300,37 +338,31 @@ function SessionRow({
       {expanded && (
         <div className="px-4 pb-4 bg-blue-50/20 border-t border-blue-100/60">
           <div className="grid grid-cols-3 md:grid-cols-6 gap-3 pt-3 pb-3">
-            {/* Viewers: peak primary, avg secondary */}
             <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Peak viewers</p>
               <p className="text-sm font-bold text-gray-900 mt-0.5">{session.most_viewers ?? '—'}</p>
               <p className="text-[10px] text-gray-400 mt-0.5">avg {session.avg_viewers}</p>
             </div>
-            {/* Session earnings */}
             <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Earnings</p>
               <p className="text-sm font-bold text-gray-900 mt-0.5">{formatUSD(session.total_usd_session)}</p>
               <p className="text-[10px] text-gray-400 mt-0.5">{formatUSD(session.usd_per_hour)}/hr</p>
             </div>
-            {/* Tips: tokens primary, members secondary */}
             <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Tips (tokens)</p>
               <p className="text-sm font-bold text-gray-900 mt-0.5">{session.tips_this_session?.toLocaleString() ?? '—'}</p>
               <p className="text-[10px] text-gray-400 mt-0.5">{session.members_tipped} tippers</p>
             </div>
-            {/* Page number — show as decimal */}
             <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Page #</p>
               <p className="text-sm font-bold text-gray-900 mt-0.5">
                 {session.page_number != null ? Number(session.page_number).toFixed(1) : '—'}
               </p>
             </div>
-            {/* Best rank */}
             <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Best rank</p>
               <p className="text-sm font-bold text-gray-900 mt-0.5">#{session.best_rank}</p>
             </div>
-            {/* Prep time if available */}
             <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Prep time</p>
               <p className="text-sm font-bold text-gray-900 mt-0.5">

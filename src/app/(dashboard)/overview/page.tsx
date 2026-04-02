@@ -115,20 +115,30 @@ export default async function OverviewPage() {
     ? Math.round(((ofStreamAvg - ofNoStreamAvg) / ofNoStreamAvg) * 100) : null
 
   return (
-    <div className="p-5 md:p-8 space-y-6 max-w-6xl mx-auto">
+    <div className="p-5 md:p-8 space-y-6 mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
         <p className="text-sm text-gray-500 mt-0.5">Your streaming analytics at a glance</p>
       </div>
 
-      {/* KPI row */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <StatCard label="All Time" value={formatUSD(allTimeUSD)} icon={DollarSign} iconColor="#2563EB" iconBg="#EFF6FF" />
-        <StatCard label="This Month" value={formatUSD(thisMonthUSD)} sub={`${thisMonthEarnings.length} stream days`} icon={TrendingUp} iconColor="#10B981" iconBg="#ECFDF5" />
-        <StatCard label="Best Day" value={bestDayAllTime ? formatUSD(bestDayAllTime.total_usd) : '—'} sub={bestDayAllTime ? formatDate(bestDayAllTime.earnings_date) : undefined} icon={Star} iconColor="#F59E0B" iconBg="#FFFBEB" />
-        <StatCard label="Total Sessions" value={sessions.length.toString()} sub={`${formatMinutes(totalMinutes)} streamed`} icon={Video} iconColor="#8B5CF6" iconBg="#F5F3FF" />
-        <StatCard label="Avg Viewers" value={avgViewers.toLocaleString()} icon={Users} iconColor="#3B82F6" iconBg="#EFF6FF" />
-        <StatCard label="Best Rank" value={bestRank > 0 ? `#${bestRank.toLocaleString()}` : '—'} sub="all time" icon={Clock} iconColor="#6366F1" iconBg="#EEF2FF" />
+      {/* KPI — 2 rows of 3, grouped by Revenue & Performance */}
+      <div className="space-y-4">
+        <div>
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Revenue</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatCard label="All Time" value={formatUSD(allTimeUSD)} icon={DollarSign} iconColor="#2563EB" iconBg="#EFF6FF" />
+            <StatCard label="This Month" value={formatUSD(thisMonthUSD)} sub={`${thisMonthEarnings.length} stream days`} icon={TrendingUp} iconColor="#10B981" iconBg="#ECFDF5" />
+            <StatCard label="Best Day" value={bestDayAllTime ? formatUSD(bestDayAllTime.total_usd) : '—'} sub={bestDayAllTime ? formatDate(bestDayAllTime.earnings_date) : undefined} icon={Star} iconColor="#F59E0B" iconBg="#FFFBEB" />
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Performance</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatCard label="Total Sessions" value={sessions.length.toString()} sub={`${formatMinutes(totalMinutes)} streamed`} icon={Video} iconColor="#8B5CF6" iconBg="#F5F3FF" />
+            <StatCard label="Avg Viewers" value={avgViewers.toLocaleString()} icon={Users} iconColor="#3B82F6" iconBg="#EFF6FF" />
+            <StatCard label="Best Rank" value={bestRank > 0 ? `#${bestRank.toLocaleString()}` : '—'} sub="all time" icon={Clock} iconColor="#6366F1" iconBg="#EEF2FF" />
+          </div>
+        </div>
       </div>
 
       {/* Insight row */}
