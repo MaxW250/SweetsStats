@@ -1,10 +1,48 @@
 export const dynamic = 'force-dynamic'
 
 import { supabaseServer } from '@/lib/supabase-server'
-import { StatCard } from '@/components/ui/StatCard'
 import { OverviewCharts } from '@/components/charts/OverviewCharts'
-import { formatUSD, formatMinutes, formatDate, getDateRange, getLast12Months } from '@/lib/utils'
+import { formatUSD, formatMinutes, formatDate, getLast12Months } from '@/lib/utils'
 import type { StreamSession, DailyEarning } from '@/types'
+import { TrendingUp, DollarSign, Video, Users, Star, Clock } from 'lucide-react'
+
+function StatCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  iconColor = '#F97B6B',
+  iconBg = '#FFF0EE',
+}: {
+  label: string
+  value: string
+  sub?: string
+  icon: React.ElementType
+  iconColor?: string
+  iconBg?: string
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider truncate">
+          {label}
+        </p>
+        <p className="text-2xl font-bold text-gray-900 mt-1.5 truncate leading-tight">
+          {value}
+        </p>
+        {sub && (
+          <p className="text-xs text-gray-400 mt-1 truncate">{sub}</p>
+        )}
+      </div>
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+        style={{ backgroundColor: iconBg }}
+      >
+        <Icon size={18} style={{ color: iconColor }} strokeWidth={2} />
+      </div>
+    </div>
+  )
+}
 
 export default async function OverviewPage() {
   const [sessionsResponse, earningsResponse] = await Promise.all([
@@ -20,85 +58,85 @@ export default async function OverviewPage() {
   const allTimeUSD = earnings.reduce((sum, e) => sum + e.total_usd, 0)
   const thisMonthUSD = thisMonthEarnings.reduce((sum, e) => sum + e.total_usd, 0)
 
-  const allTimeViewers = sessions.reduce((sum, s) => sum + s.avg_viewers * s.stream_length_minutes, 0)
-  const avgViewersAllTime = sessions.length > 0 ? Math.round(allTimeViewers / sessions.reduce((sum, s) => sum + s.stream_length_minutes, 0)) : 0
+  const totalMinutes = sessions.reduce((sum, s) => sum + s.stream_length_minutes, 0)
+  const avgViewersAllTime =
+    sessions.length > 0
+      ? Math.round(
+          sessions.reduce((sum, s) => sum + s.avg_viewers * s.stream_length_minutes, 0) /
+            Math.max(totalMinutes, 1)
+        )
+      : 0
 
   const bestRankAllTime = sessions.length > 0 ? Math.min(...sessions.map((s) => s.best_rank)) : 0
-  const totalHours = sessions.reduce((sum, s) => sum + s.stream_length_minutes, 0)
+  const bestDayAllTime = earnings.length > 0
+    ? earnings.reduce((max, e) => (e.total_usd > max.total_usd ? e : max))
+    : null
 
-  const bestDayAllTime = earnings.length > 0 ? earnings.reduce((max, e) => e.total_usd > max.total_usd ? e : max) : null
-  const bestDayThisMonth = thisMonthEarnings.length > 0 ? thisMonthEarnings.reduce((max, e) => e.total_usd > max.total_usd ? e : max) : null
-  const worstDayThisMonth = thisMonthEarnings.length > 0 ? thisMonthEarnings.reduce((min, e) => e.total_usd < min.total_usd ? e : min) : null
+  // Last 30 days sessions for the "recent" section
+  const recent7Sessions = sessions.slice(0, 7)
+  const recent7Earnings = recent7Sessions.length > 0
+    ? recent7Sessions.reduce((sum, s) => sum + s.total_usd_session, 0)
+    : 0
 
   return (
-    <div className="p-4 md:p-8 space-y-8 max-w-6xl mx-auto">
+    <div className="p-5 md:p-8 space-y-7 max-w-6xl mx-auto">
+      {/* Header */}
       <div>
-        <h1 className="text-3xl md:text-4xl font-serif font-bold text-gray-900">Overview</h1>
-        <p className="text-gray-600 mt-2">Your streaming analytics at a glance</p>
+        <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Your streaming analytics at a glance</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {/* Top stats row */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard
-          title="All Time Earnings"
+          label="All Time"
           value={formatUSD(allTimeUSD)}
-          accent="bg-gradient-to-br from-coral from-10% to-white"
+          icon={DollarSign}
+          iconColor="#F97B6B"
+          iconBg="#FFF0EE"
         />
         <StatCard
-          title="This Month"
+          label="This Month"
           value={formatUSD(thisMonthUSD)}
-          accent="bg-gray-50"
+          sub={`${thisMonthEarnings.length} stream days`}
+          icon={TrendingUp}
+          iconColor="#10B981"
+          iconBg="#ECFDF5"
         />
         <StatCard
-          title="Avg Viewers"
+          label="Best Day"
+          value={bestDayAllTime ? formatUSD(bestDayAllTime.total_usd) : '—'}
+          sub={bestDayAllTime ? formatDate(bestDayAllTime.earnings_date) : undefined}
+          icon={Star}
+          iconColor="#F59E0B"
+          iconBg="#FFFBEB"
+        />
+        <StatCard
+          label="Total Sessions"
+          value={sessions.length.toString()}
+          sub={`${formatMinutes(totalMinutes)} streamed`}
+          icon={Video}
+          iconColor="#8B5CF6"
+          iconBg="#F5F3FF"
+        />
+        <StatCard
+          label="Avg Viewers"
           value={avgViewersAllTime.toLocaleString()}
-          accent="bg-gray-50"
+          icon={Users}
+          iconColor="#3B82F6"
+          iconBg="#EFF6FF"
         />
         <StatCard
-          title="Best Rank Ever"
-          value={`#${bestRankAllTime.toLocaleString()}`}
-          accent="bg-gray-50"
+          label="Best Rank"
+          value={bestRankAllTime > 0 ? `#${bestRankAllTime.toLocaleString()}` : '—'}
+          sub="all time"
+          icon={Clock}
+          iconColor="#6366F1"
+          iconBg="#EEF2FF"
         />
-        <StatCard
-          title="Total Hours"
-          value={formatMinutes(totalHours)}
-          accent="bg-gray-50"
-        />
-        {bestDayAllTime && (
-          <StatCard
-            title="Best Day Ever"
-            value={formatUSD(bestDayAllTime.total_usd)}
-            subtitle={formatDate(bestDayAllTime.earnings_date)}
-            accent="bg-gray-50"
-          />
-        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {bestDayThisMonth && (
-          <div className="bg-gradient-to-br from-green-50 to-white rounded-lg border border-green-200 p-6">
-            <p className="text-sm text-green-700 font-medium">Best Day This Month</p>
-            <p className="text-3xl font-serif font-bold text-green-900 mt-2">
-              {formatUSD(bestDayThisMonth.total_usd)}
-            </p>
-            <p className="text-sm text-green-700 mt-2">
-              {formatDate(bestDayThisMonth.earnings_date)}
-            </p>
-          </div>
-        )}
-
-        {worstDayThisMonth && (
-          <div className="bg-gradient-to-br from-amber-50 to-white rounded-lg border border-amber-200 p-6">
-            <p className="text-sm text-amber-700 font-medium">Take This Day Off Guilt-Free</p>
-            <p className="text-3xl font-serif font-bold text-amber-900 mt-2">
-              {formatUSD(worstDayThisMonth.total_usd)}
-            </p>
-            <p className="text-sm text-amber-700 mt-2">
-              {formatDate(worstDayThisMonth.earnings_date)} 💛
-            </p>
-          </div>
-        )}
-      </div>
-
+      {/* Charts */}
       <OverviewCharts sessions={sessions} earnings={earnings} />
     </div>
   )

@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { formatUSD, formatDate, getDateRange } from '@/lib/utils'
-import { StatCard } from '@/components/ui/StatCard'
+import { useState, useEffect, useMemo } from 'react'
+import { formatUSD, formatDate } from '@/lib/utils'
 import type { DailyEarning } from '@/types'
 import {
   BarChart,
@@ -15,172 +14,280 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+import { TrendingUp, Star, Calendar, Activity } from 'lucide-react'
+
+type Timeframe = 'daily' | 'weekly' | 'monthly'
+
+const TOOLTIP_STYLE = {
+  contentStyle: {
+    backgroundColor: '#fff',
+    border: '1px solid #F3F4F6',
+    borderRadius: '8px',
+    fontSize: 12,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+  },
+}
+
+function StatCard({
+  label, value, sub, icon: Icon, color = '#F97B6B', bg = '#FFF0EE',
+}: {
+  label: string; value: string; sub?: string
+  icon: React.ElementType; color?: string; bg?: string
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+        <p className="text-2xl font-bold text-gray-900 mt-1.5 leading-tight">{value}</p>
+        {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+      </div>
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: bg }}>
+        <Icon size={18} style={{ color }} strokeWidth={2} />
+      </div>
+    </div>
+  )
+}
 
 export default function EarningsPage() {
   const [earnings, setEarnings] = useState<DailyEarning[]>([])
   const [loading, setLoading] = useState(true)
-  const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('monthly')
+  const [timeframe, setTimeframe] = useState<Timeframe>('daily')
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 29)
+    return d.toISOString().slice(0, 10)
+  })
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10))
 
   useEffect(() => {
-    fetchEarnings()
+    fetch('/api/daily-earnings')
+      .then((r) => r.json())
+      .then(setEarnings)
+      .catch(console.error)
+      .finally(() => setLoading(false))
   }, [])
 
-  const fetchEarnings = async () => {
-    setLoading(true)
-    try {
-      const response = await fetch('/api/daily-earnings')
-      const data = await response.json()
-      setEarnings(data)
-    } catch (error) {
-      console.error('Failed to fetch earnings:', error)
-    } finally {
-      setLoading(false)
+  // Filter by date range
+  const filtered = useMemo(
+    () => earnings.filter((e) => e.earnings_date >= startDate && e.earnings_date <= endDate),
+    [earnings, startDate, endDate]
+  )
+
+  // Build chart data based on timeframe
+  const chartData = useMemo(() => {
+    const sorted = [...filtered].sort((a, b) => a.earnings_date.localeCompare(b.earnings_date))
+
+    if (timeframe === 'daily') {
+      return sorted.map((e) => ({ label: e.earnings_date.slice(5), usd: e.total_usd }))
     }
+
+    if (timeframe === 'weekly') {
+      const weeks: Record<string, number> = {}
+      sorted.forEach((e) => {
+        const d = new Date(e.earnings_date + 'T12:00:00')
+        const day = d.getDay() || 7
+        d.setDate(d.getDate() - day + 1)
+        const key = d.toISOString().slice(0, 10)
+        weeks[key] = (weeks[key] ?? 0) + e.total_usd
+      })
+      return Object.entries(weeks).map(([w, usd]) => ({ label: w.slice(5), usd }))
+    }
+
+    // monthly
+    const months: Record<string, number> = {}
+    sorted.forEach((e) => {
+      const key = e.earnings_date.slice(0, 7)
+      months[key] = (months[key] ?? 0) + e.total_usd
+    })
+    return Object.entries(months).map(([m, usd]) => ({ label: m.slice(5), usd }))
+  }, [filtered, timeframe])
+
+  // Stats
+  const totalUSD = filtered.reduce((s, e) => s + e.total_usd, 0)
+  const avgPerDay = filtered.length > 0 ? totalUSD / filtered.length : 0
+  const bestDay = filtered.length > 0
+    ? filtered.reduce((m, e) => (e.total_usd > m.total_usd ? e : m))
+    : null
+
+  const setLast = (days: number) => {
+    const end = new Date()
+    const start = new Date()
+    start.setDate(end.getDate() - (days - 1))
+    setEndDate(end.toISOString().slice(0, 10))
+    setStartDate(start.toISOString().slice(0, 10))
   }
 
-  const currentMonth = new Date().toISOString().slice(0, 7)
-  const thisMonthEarnings = earnings.filter((e) => e.earnings_date.startsWith(currentMonth))
-
-  const bestDay = thisMonthEarnings.length > 0
-    ? thisMonthEarnings.reduce((max, e) => e.total_usd > max.total_usd ? e : max)
-    : null
-
-  const worstDay = thisMonthEarnings.length > 0
-    ? thisMonthEarnings.reduce((min, e) => e.total_usd < min.total_usd ? e : min)
-    : null
-
-  const avgPerStreamDay = thisMonthEarnings.length > 0
-    ? thisMonthEarnings.reduce((sum, e) => sum + e.total_usd, 0) / thisMonthEarnings.reduce((sum, e) => sum + e.number_of_streams, 0)
-    : 0
-
-  const thisMonthDays = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
-  const avgPerCalendarDay = thisMonthEarnings.length > 0
-    ? thisMonthEarnings.reduce((sum, e) => sum + e.total_usd, 0) / thisMonthDays
-    : 0
-
-  const chartData = thisMonthEarnings
-    .sort((a, b) => new Date(a.earnings_date).getTime() - new Date(b.earnings_date).getTime())
-    .map((e) => ({
-      date: e.earnings_date.slice(-2),
-      earnings: e.total_usd,
-    }))
-
-  const topTippers = earnings
-    .filter((e) => e.highest_tipper_username)
-    .reduce((acc: Record<string, number>, e) => {
-      acc[e.highest_tipper_username!] = (acc[e.highest_tipper_username!] || 0) + 1
-      return acc
-    }, {})
-
-  const topTippersArray = Object.entries(topTippers)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-
   return (
-    <div className="p-4 md:p-8 space-y-8 max-w-6xl mx-auto">
+    <div className="p-5 md:p-8 space-y-6 max-w-6xl mx-auto">
       <div>
-        <h1 className="text-3xl md:text-4xl font-serif font-bold text-gray-900">Earnings</h1>
-        <p className="text-gray-600 mt-2">Track your daily revenue</p>
+        <h1 className="text-2xl font-bold text-gray-900">Earnings</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Track your revenue over time</p>
       </div>
 
-      <div className="flex gap-2">
-        <button
-          onClick={() => setTimeframe('daily')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            timeframe === 'daily'
-              ? 'bg-coral text-white'
-              : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-          }`}
-        >
-          Daily
-        </button>
-        <button
-          onClick={() => setTimeframe('weekly')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            timeframe === 'weekly'
-              ? 'bg-coral text-white'
-              : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-          }`}
-        >
-          Weekly
-        </button>
-        <button
-          onClick={() => setTimeframe('monthly')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            timeframe === 'monthly'
-              ? 'bg-coral text-white'
-              : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-          }`}
-        >
-          Monthly
-        </button>
+      {/* Filters */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+          <div className="flex items-center gap-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
+              />
+            </div>
+            <span className="text-gray-400 text-sm mt-5">—</span>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            {[{ label: '7d', days: 7 }, { label: '30d', days: 30 }, { label: '90d', days: 90 }, { label: 'All', days: 9999 }].map(({ label, days }) => (
+              <button
+                key={label}
+                onClick={() => days === 9999 ? (setStartDate('2020-01-01'), setEndDate(new Date().toISOString().slice(0, 10))) : setLast(days)}
+                className="px-3 py-2 text-xs font-medium rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+          {(['daily', 'weekly', 'monthly'] as Timeframe[]).map((tf) => (
+            <button
+              key={tf}
+              onClick={() => setTimeframe(tf)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                timeframe === tf ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tf}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {bestDay && (
-          <StatCard
-            title="Best Day"
-            value={formatUSD(bestDay.total_usd)}
-            subtitle={formatDate(bestDay.earnings_date)}
-            accent="bg-green-50"
-          />
-        )}
-        {worstDay && (
-          <StatCard
-            title="Lowest Day"
-            value={formatUSD(worstDay.total_usd)}
-            subtitle={formatDate(worstDay.earnings_date)}
-            accent="bg-gray-50"
-          />
-        )}
+        <StatCard label="Total Earned" value={formatUSD(totalUSD)} icon={TrendingUp} />
         <StatCard
-          title="Avg per Stream"
-          value={formatUSD(avgPerStreamDay)}
-          accent="bg-gray-50"
+          label="Best Day"
+          value={bestDay ? formatUSD(bestDay.total_usd) : '—'}
+          sub={bestDay ? formatDate(bestDay.earnings_date) : undefined}
+          icon={Star} color="#F59E0B" bg="#FFFBEB"
         />
         <StatCard
-          title="Avg per Calendar Day"
-          value={formatUSD(avgPerCalendarDay)}
-          accent="bg-gray-50"
+          label="Avg per Day"
+          value={formatUSD(avgPerDay)}
+          sub="stream days only"
+          icon={Activity} color="#10B981" bg="#ECFDF5"
+        />
+        <StatCard
+          label="Stream Days"
+          value={filtered.length.toString()}
+          icon={Calendar} color="#3B82F6" bg="#EFF6FF"
         />
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-serif font-bold text-gray-900 mb-6">
-          Daily Earnings This Month
-        </h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-            <XAxis dataKey="date" stroke="#9CA3AF" />
-            <YAxis stroke="#9CA3AF" />
-            <Tooltip
-              contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB' }}
-              formatter={(value) => formatUSD(value as number)}
-            />
-            <Bar dataKey="earnings" fill="#F97B6B" radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+      {/* Bar chart */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <h3 className="text-sm font-semibold text-gray-700 mb-4 capitalize">{timeframe} Earnings</h3>
+        {loading ? (
+          <div className="h-[280px] flex items-center justify-center text-sm text-gray-400">Loading…</div>
+        ) : chartData.length === 0 ? (
+          <div className="h-[280px] flex items-center justify-center text-sm text-gray-400">No data for this range</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={chartData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+              <XAxis
+                dataKey="label"
+                stroke="#D1D5DB"
+                tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                interval={chartData.length > 20 ? Math.floor(chartData.length / 10) : 0}
+              />
+              <YAxis stroke="#D1D5DB" tick={{ fontSize: 11, fill: '#9CA3AF' }} />
+              <Tooltip {...TOOLTIP_STYLE} formatter={(v) => [formatUSD(v as number), 'USD']} />
+              <Bar dataKey="usd" fill="#F97B6B" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-serif font-bold text-gray-900 mb-6">
-          Top Tippers This Month
-        </h3>
-        <div className="space-y-3">
-          {topTippersArray.length > 0 ? (
-            topTippersArray.map(([username, count], idx) => (
-              <div key={username} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-500">#{idx + 1}</span>
-                  <span className="font-medium text-gray-900">{username}</span>
-                </div>
-                <span className="text-sm text-gray-600">{count} time{count !== 1 ? 's' : ''}</span>
-              </div>
-            ))
-          ) : (
-            <p className="text-gray-500">No tippers yet this month</p>
-          )}
+      {/* Cumulative line */}
+      {chartData.length > 1 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">Cumulative Earnings</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart
+              data={chartData.reduce<{ label: string; total: number }[]>((acc, item) => {
+                const prev = acc[acc.length - 1]?.total ?? 0
+                acc.push({ label: item.label, total: prev + item.usd })
+                return acc
+              }, [])}
+              margin={{ top: 4, right: 4, left: -16, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+              <XAxis
+                dataKey="label"
+                stroke="#D1D5DB"
+                tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                interval={chartData.length > 20 ? Math.floor(chartData.length / 8) : 0}
+              />
+              <YAxis stroke="#D1D5DB" tick={{ fontSize: 11, fill: '#9CA3AF' }} />
+              <Tooltip {...TOOLTIP_STYLE} formatter={(v) => [formatUSD(v as number), 'Total']} />
+              <Line type="monotone" dataKey="total" stroke="#F97B6B" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: '#F97B6B' }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Log table */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-700">Earnings Log</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">USD</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Tokens</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Streams</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Top Tipper</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {loading ? (
+                <tr><td colSpan={5} className="px-5 py-6 text-center text-sm text-gray-400">Loading…</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={5} className="px-5 py-6 text-center text-sm text-gray-400">No data for this range</td></tr>
+              ) : (
+                [...filtered]
+                  .sort((a, b) => b.earnings_date.localeCompare(a.earnings_date))
+                  .map((e) => (
+                    <tr key={e.id} className="hover:bg-gray-50/50">
+                      <td className="px-5 py-3 font-medium text-gray-700">{formatDate(e.earnings_date)}</td>
+                      <td className="px-5 py-3 font-semibold text-gray-900">{formatUSD(e.total_usd)}</td>
+                      <td className="px-5 py-3 text-gray-600">{e.total_tokens?.toLocaleString() ?? '—'}</td>
+                      <td className="px-5 py-3 text-gray-600">{e.number_of_streams ?? '—'}</td>
+                      <td className="px-5 py-3 text-gray-600">{e.highest_tipper_username ?? '—'}</td>
+                    </tr>
+                  ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

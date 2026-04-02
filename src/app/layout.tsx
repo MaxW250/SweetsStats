@@ -1,19 +1,11 @@
 import type { Metadata } from 'next'
-import { DM_Sans, DM_Serif_Display } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import { Providers } from './providers'
 import './globals.css'
 
-const dmSans = DM_Sans({
+const inter = Inter({
   subsets: ['latin'],
-  weight: ['400', '500', '700'],
-  variable: '--font-dm-sans',
-})
-
-const dmSerif = DM_Serif_Display({
-  subsets: ['latin'],
-  weight: '400',
-  style: ['normal', 'italic'],
-  variable: '--font-dm-serif',
+  variable: '--font-inter',
 })
 
 export const metadata: Metadata = {
@@ -27,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${dmSerif.variable} light`}>
-      <body className="font-sans antialiased">
+    <html lang="en" className={`${inter.variable} light`}>
+      <body className="antialiased" style={{ fontFamily: "'Inter', sans-serif" }}>
         <Providers>
           {children}
         </Providers>
