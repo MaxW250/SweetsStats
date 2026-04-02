@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Model is live — log a session if one doesn't already exist for today
-    const supabase = supabaseServer()
+    const supabase = supabaseServer
     const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
 
     // Check for existing session today
