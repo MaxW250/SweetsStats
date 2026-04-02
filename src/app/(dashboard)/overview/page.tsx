@@ -11,10 +11,10 @@ function StatCard({
 }: { label: string; value: string; sub?: string; icon: React.ElementType; iconColor?: string; iconBg?: string }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider truncate">{label}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1.5 truncate leading-tight">{value}</p>
-        {sub && <p className="text-xs text-gray-400 mt-1 truncate">{sub}</p>}
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+        <p className="text-2xl font-bold text-gray-900 mt-1.5 leading-tight break-words">{value}</p>
+        {sub && <p className="text-xs text-gray-400 mt-1 break-words">{sub}</p>}
       </div>
       <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: iconBg }}>
         <Icon size={18} style={{ color: iconColor }} strokeWidth={2} />
@@ -31,7 +31,7 @@ function InsightCard({
       <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: iconBg }}>
         <Icon size={15} style={{ color: iconColor }} strokeWidth={2} />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
         <p className="text-sm font-bold text-gray-900 mt-0.5">{value}</p>
         {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
@@ -59,18 +59,20 @@ export default async function OverviewPage() {
   const allTimeUSD = earnings.reduce((s, e) => s + e.total_usd, 0)
   const thisMonthUSD = thisMonthEarnings.reduce((s, e) => s + e.total_usd, 0)
   const totalMinutes = sessions.reduce((s, e) => s + e.stream_length_minutes, 0)
-  const avgViewers = sessions.length > 0 ? Math.round(sessions.reduce((s, e) => s + e.avg_viewers * e.stream_length_minutes, 0) / Math.max(totalMinutes, 1)) : 0
+  const avgViewers = sessions.length > 0
+    ? Math.round(sessions.reduce((s, e) => s + e.avg_viewers * e.stream_length_minutes, 0) / Math.max(totalMinutes, 1))
+    : 0
   const bestRank = sessions.length > 0 ? Math.min(...sessions.map((s) => s.best_rank)) : 0
   const bestDayAllTime = earnings.length > 0 ? earnings.reduce((m, e) => (e.total_usd > m.total_usd ? e : m)) : null
 
-  // --- Insight calculations ---
-  // Best day of week
+  // --- DOW analysis using daily_earnings (correct source) ---
+  // Uses earnings_date + T12:00:00 to avoid UTC timezone shifts
   const byDow: Record<string, number[]> = {}
-  sessions.forEach((s) => {
-    if (!s.total_usd_session) return
-    const dow = new Date(s.session_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' })
+  earnings.forEach((e) => {
+    if (!e.total_usd) return
+    const dow = new Date(e.earnings_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' })
     if (!byDow[dow]) byDow[dow] = []
-    byDow[dow].push(s.total_usd_session)
+    byDow[dow].push(e.total_usd)
   })
   const dowAvg = Object.entries(byDow)
     .map(([day, vals]) => ({ day, avg: vals.reduce((a, b) => a + b, 0) / vals.length }))
@@ -78,7 +80,7 @@ export default async function OverviewPage() {
   const bestDow = dowAvg[0]
   const cheapestDow = dowAvg.length > 0 ? [...dowAvg].sort((a, b) => a.avg - b.avg)[0] : null
 
-  // Best start window
+  // Best start window (session-level — start_time only exists on sessions)
   const byTime: Record<string, number[]> = { Morning: [], Afternoon: [], Evening: [], Night: [] }
   sessions.forEach((s) => {
     if (!s.start_time || !s.total_usd_session) return
@@ -90,15 +92,15 @@ export default async function OverviewPage() {
     .map(([t, v]) => ({ t, avg: v.reduce((a, b) => a + b, 0) / v.length }))
     .sort((a, b) => b.avg - a.avg)[0]
 
-  // Burnout index (this week vs 3-week avg)
+  // Burnout index (this week vs 3-week rolling avg)
   const now = new Date()
   const oneWeekAgo = new Date(now); oneWeekAgo.setDate(now.getDate() - 7)
   const fourWeeksAgo = new Date(now); fourWeeksAgo.setDate(now.getDate() - 28)
   const thisWeekMins = sessions
-    .filter((s) => new Date(s.session_date) >= oneWeekAgo)
+    .filter((s) => new Date(s.session_date + 'T12:00:00') >= oneWeekAgo)
     .reduce((a, s) => a + (s.stream_length_minutes ?? 0), 0)
   const prevWeekMins = sessions
-    .filter((s) => { const d = new Date(s.session_date); return d >= fourWeeksAgo && d < oneWeekAgo })
+    .filter((s) => { const d = new Date(s.session_date + 'T12:00:00'); return d >= fourWeeksAgo && d < oneWeekAgo })
     .reduce((a, s) => a + (s.stream_length_minutes ?? 0), 0) / 3
   const burnoutRatio = prevWeekMins > 0 ? thisWeekMins / prevWeekMins : 1
   const burnoutStatus = burnoutRatio > 1.4 ? 'High 🔴' : burnoutRatio > 1.1 ? 'Medium 🟡' : 'Low 🟢'
@@ -130,7 +132,7 @@ export default async function OverviewPage() {
       </div>
 
       {/* Insight row */}
-      {sessions.length >= 3 && (
+      {earnings.length >= 3 && (
         <div>
           <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Insights</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

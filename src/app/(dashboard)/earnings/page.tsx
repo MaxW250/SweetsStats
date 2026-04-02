@@ -307,7 +307,11 @@ export default function EarningsPage() {
                       <td className="px-5 py-3 font-semibold text-gray-900">{formatUSD(e.total_usd)}</td>
                       <td className="px-5 py-3 text-gray-600">{e.total_tokens?.toLocaleString() ?? '—'}</td>
                       <td className="px-5 py-3 text-gray-600">{e.number_of_streams ?? '—'}</td>
-                      <td className="px-5 py-3 text-gray-600">{e.highest_tipper_username ?? '—'}</td>
+                      <td className="px-5 py-3 text-gray-600">
+                        {e.highest_tipper_username
+                          ? <span>{e.highest_tipper_username}{e.highest_tip_usd != null && <span className="text-gray-400 ml-1">({formatUSD(e.highest_tip_usd)})</span>}</span>
+                          : '—'}
+                      </td>
                     </tr>
                   ))
               )}

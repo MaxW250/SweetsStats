@@ -49,7 +49,16 @@ export default function TippersPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_vip: !current }),
     })
-    await fetchTippers()
+    setTippers((prev) => prev.map((t) => t.id === id ? { ...t, is_vip: !current } : t))
+  }
+
+  const updateNotes = async (id: string, notes: string) => {
+    await fetch(`/api/tippers/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes }),
+    })
+    setTippers((prev) => prev.map((t) => t.id === id ? { ...t, notes } : t))
   }
 
   const sorted = useMemo(() => {
@@ -127,7 +136,7 @@ export default function TippersPage() {
         ))}
       </div>
 
-      {/* Tippers table */}
+      {/* Tippers list */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
           <div className="py-12 text-center text-sm text-gray-400">Loading...</div>
@@ -135,7 +144,7 @@ export default function TippersPage() {
           <div className="py-12 text-center text-sm text-gray-400">No tippers found.</div>
         ) : (
           <div className="divide-y divide-gray-50">
-            {filtered.map((tipper, idx) => (
+            {filtered.map((tipper) => (
               <TipperRow
                 key={tipper.id}
                 tipper={tipper}
@@ -143,6 +152,7 @@ export default function TippersPage() {
                 expanded={expandedId === tipper.id}
                 onToggle={() => setExpandedId(expandedId === tipper.id ? null : tipper.id)}
                 onToggleVip={() => toggleVip(tipper.id, tipper.is_vip)}
+                onUpdateNotes={(notes) => updateNotes(tipper.id, notes)}
               />
             ))}
           </div>
@@ -178,10 +188,14 @@ export default function TippersPage() {
   )
 }
 
-function TipperRow({ tipper, rank, expanded, onToggle, onToggleVip }: {
-  tipper: any; rank: number; expanded: boolean; onToggle: () => void; onToggleVip: () => void
+function TipperRow({ tipper, rank, expanded, onToggle, onToggleVip, onUpdateNotes }: {
+  tipper: any; rank: number; expanded: boolean
+  onToggle: () => void; onToggleVip: () => void; onUpdateNotes: (notes: string) => void
 }) {
+  const [notes, setNotes] = useState(tipper.notes || '')
+  const [editingNotes, setEditingNotes] = useState(false)
   const days = daysSince(tipper.last_seen_date)
+
   return (
     <>
       <div onClick={onToggle} className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors ${expanded ? 'bg-blue-50/20' : ''}`}>
@@ -212,15 +226,86 @@ function TipperRow({ tipper, rank, expanded, onToggle, onToggleVip }: {
           <Star size={15} className={tipper.is_vip ? 'text-amber-400 fill-amber-400' : 'text-gray-200'} />
         </button>
       </div>
+
       {expanded && (
-        <div className="px-4 pb-4 bg-blue-50/10 border-t border-blue-100/40">
+        <div className="px-4 pb-4 bg-blue-50/10 border-t border-blue-100/40" onClick={(e) => e.stopPropagation()}>
+          {/* Full stats grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3">
-            <div><p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Tokens</p><p className="text-sm font-bold text-gray-900 mt-0.5">{formatTokens(tipper.total_tokens_all_time)}</p></div>
-            <div><p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Biggest tip</p><p className="text-sm font-bold text-gray-900 mt-0.5">{formatUSD(tipper.biggest_single_tip_usd)}</p></div>
-            <div><p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">First seen</p><p className="text-sm font-bold text-gray-900 mt-0.5">{tipper.first_seen_date ? formatDate(tipper.first_seen_date) : '—'}</p></div>
-            <div><p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Last seen</p><p className="text-sm font-bold text-gray-900 mt-0.5">{tipper.last_seen_date ? formatDate(tipper.last_seen_date) : '—'}</p></div>
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Total USD</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">{formatUSD(tipper.total_usd_all_time)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Total Tokens</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">{formatTokens(tipper.total_tokens_all_time)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Number of Tips</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">{tipper.number_of_tips}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Biggest Tip</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">{formatUSD(tipper.biggest_single_tip_usd)}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">{formatTokens(tipper.biggest_single_tip_tokens)} tokens</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">First Seen</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">{tipper.first_seen_date ? formatDate(tipper.first_seen_date) : '—'}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Last Seen</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">{tipper.last_seen_date ? formatDate(tipper.last_seen_date) : '—'}</p>
+              {days <= 9998 && <p className={`text-[10px] mt-0.5 ${days <= 30 ? 'text-green-500' : days <= 60 ? 'text-amber-500' : 'text-red-400'}`}>{days}d ago</p>}
+            </div>
+            {/* VIP toggle in detail */}
+            <div className="col-span-2 flex items-center gap-3">
+              <button
+                onClick={() => onToggleVip()}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-colors border ${
+                  tipper.is_vip
+                    ? 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100'
+                    : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                <Star size={13} className={tipper.is_vip ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} />
+                {tipper.is_vip ? 'VIP — click to remove' : 'Make VIP'}
+              </button>
+            </div>
           </div>
-          {tipper.notes && <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-blue-100/60">{tipper.notes}</p>}
+
+          {/* Editable notes */}
+          <div className="border-t border-blue-100/60 pt-3 mt-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-semibold text-gray-500">Notes</span>
+              <button
+                onClick={() => setEditingNotes(!editingNotes)}
+                className="text-xs text-brand hover:underline"
+              >
+                {editingNotes ? 'Cancel' : 'Edit'}
+              </button>
+            </div>
+            {editingNotes ? (
+              <div className="space-y-2">
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
+                  rows={2}
+                  placeholder="Add notes about this tipper..."
+                />
+                <button
+                  onClick={async () => { await onUpdateNotes(notes); setEditingNotes(false) }}
+                  className="px-3 py-1.5 bg-brand text-white text-xs rounded-lg font-medium"
+                >
+                  Save
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600">
+                {notes || <span className="text-gray-300 italic">No notes</span>}
+              </p>
+            )}
+          </div>
         </div>
       )}
     </>

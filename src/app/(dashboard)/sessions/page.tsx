@@ -7,6 +7,9 @@ import { SessionForm } from '@/components/forms/SessionForm'
 import { Plus, TrendingDown, Trophy, DollarSign, Users } from 'lucide-react'
 import type { StreamSession } from '@/types'
 
+type DepthFilter = 'this-week' | 'last-week' | 'this-month' | 'all'
+
+// Returns Mon–Sun of the current week as ISO date strings
 function getThisWeekRange() {
   const now = new Date()
   const day = now.getDay()
@@ -17,11 +20,44 @@ function getThisWeekRange() {
   return { start: mon.toISOString().split('T')[0], end: sun.toISOString().split('T')[0] }
 }
 
+function getLastWeekRange() {
+  const now = new Date()
+  const day = now.getDay()
+  const thisMon = new Date(now)
+  thisMon.setDate(now.getDate() - ((day + 6) % 7))
+  const lastMon = new Date(thisMon)
+  lastMon.setDate(thisMon.getDate() - 7)
+  const lastSun = new Date(thisMon)
+  lastSun.setDate(thisMon.getDate() - 1)
+  return { start: lastMon.toISOString().split('T')[0], end: lastSun.toISOString().split('T')[0] }
+}
+
+function getThisMonthRange() {
+  const now = new Date()
+  const first = new Date(now.getFullYear(), now.getMonth(), 1)
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  return { start: first.toISOString().split('T')[0], end: last.toISOString().split('T')[0] }
+}
+
+function computeStats(list: StreamSession[]) {
+  if (!list.length) return null
+  const sorted = [...list].sort((a, b) => (b.total_usd_session ?? 0) - (a.total_usd_session ?? 0))
+  return {
+    best: sorted[0],
+    worst: sorted[sorted.length - 1],
+    totalUSD: list.reduce((s, x) => s + (x.total_usd_session ?? 0), 0),
+    totalMins: list.reduce((s, x) => s + (x.stream_length_minutes ?? 0), 0),
+    avgViewers: Math.round(list.reduce((s, x) => s + (x.avg_viewers ?? 0), 0) / list.length),
+    count: list.length,
+  }
+}
+
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<StreamSession[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [depthFilter, setDepthFilter] = useState<DepthFilter>('this-month')
 
   useEffect(() => { fetchSessions() }, [])
 
@@ -45,26 +81,36 @@ export default function SessionsPage() {
   }
 
   const { start: weekStart, end: weekEnd } = getThisWeekRange()
-  const thisWeek = useMemo(
-    () => sessions.filter((s) => s.session_date >= weekStart && s.session_date <= weekEnd),
-    [sessions, weekStart, weekEnd]
-  )
+  const { start: lastWeekStart, end: lastWeekEnd } = getLastWeekRange()
+  const { start: monthStart, end: monthEnd } = getThisMonthRange()
 
-  const ws = useMemo(() => {
-    if (!thisWeek.length) return null
-    const sorted = [...thisWeek].sort((a, b) => (b.total_usd_session ?? 0) - (a.total_usd_session ?? 0))
-    return {
-      best: sorted[0],
-      worst: sorted[sorted.length - 1],
-      totalUSD: thisWeek.reduce((s, x) => s + (x.total_usd_session ?? 0), 0),
-      totalMins: thisWeek.reduce((s, x) => s + (x.stream_length_minutes ?? 0), 0),
-      avgViewers: Math.round(thisWeek.reduce((s, x) => s + (x.avg_viewers ?? 0), 0) / thisWeek.length),
-      count: thisWeek.length,
+  const thisWeek = useMemo(() => sessions.filter((s) => s.session_date >= weekStart && s.session_date <= weekEnd), [sessions, weekStart, weekEnd])
+  const lastWeek = useMemo(() => sessions.filter((s) => s.session_date >= lastWeekStart && s.session_date <= lastWeekEnd), [sessions, lastWeekStart, lastWeekEnd])
+  const thisMonth = useMemo(() => sessions.filter((s) => s.session_date >= monthStart && s.session_date <= monthEnd), [sessions, monthStart, monthEnd])
+
+  const ws = useMemo(() => computeStats(thisWeek), [thisWeek])
+  const lws = useMemo(() => computeStats(lastWeek), [lastWeek])
+  const ms = useMemo(() => computeStats(thisMonth), [thisMonth])
+
+  // Filtered list for the session rows
+  const filteredSessions = useMemo(() => {
+    switch (depthFilter) {
+      case 'this-week': return sessions.filter((s) => s.session_date >= weekStart && s.session_date <= weekEnd)
+      case 'last-week': return sessions.filter((s) => s.session_date >= lastWeekStart && s.session_date <= lastWeekEnd)
+      case 'this-month': return sessions.filter((s) => s.session_date >= monthStart && s.session_date <= monthEnd)
+      default: return sessions
     }
-  }, [thisWeek])
+  }, [sessions, depthFilter, weekStart, weekEnd, lastWeekStart, lastWeekEnd, monthStart, monthEnd])
 
   const sd = (d: string) =>
     new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+
+  const depthTabs: { key: DepthFilter; label: string; count: number }[] = [
+    { key: 'this-week', label: 'This week', count: thisWeek.length },
+    { key: 'last-week', label: 'Last week', count: lastWeek.length },
+    { key: 'this-month', label: 'This month', count: thisMonth.length },
+    { key: 'all', label: 'All', count: sessions.length },
+  ]
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-5xl mx-auto">
@@ -83,61 +129,83 @@ export default function SessionsPage() {
         </button>
       </div>
 
+      {/* This week summary */}
       {ws && (
         <div>
           <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">This week</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MiniCard
-              icon={<Trophy size={13} className="text-amber-400" />}
-              label="Best day"
-              value={sd(ws.best.session_date)}
-              sub={formatUSD(ws.best.total_usd_session)}
-              subColor="text-brand"
-            />
-            <MiniCard
-              icon={<TrendingDown size={13} className="text-gray-300" />}
-              label="Lowest day"
-              value={sd(ws.worst.session_date)}
-              sub={formatUSD(ws.worst.total_usd_session)}
-              subColor="text-gray-400"
-            />
-            <MiniCard
-              icon={<DollarSign size={13} className="text-green-400" />}
-              label="Week total"
-              value={formatUSD(ws.totalUSD)}
-              sub={`${ws.count} sessions`}
-              subColor="text-gray-400"
-            />
-            <MiniCard
-              icon={<Users size={13} className="text-blue-400" />}
-              label="Avg viewers"
-              value={String(ws.avgViewers)}
-              sub={formatMinutes(ws.totalMins) + ' streamed'}
-              subColor="text-gray-400"
-            />
+            <MiniCard icon={<Trophy size={13} className="text-amber-400" />} label="Best day" value={sd(ws.best.session_date)} sub={formatUSD(ws.best.total_usd_session)} subColor="text-brand" />
+            <MiniCard icon={<TrendingDown size={13} className="text-gray-300" />} label="Lowest day" value={sd(ws.worst.session_date)} sub={formatUSD(ws.worst.total_usd_session)} subColor="text-gray-400" />
+            <MiniCard icon={<DollarSign size={13} className="text-green-400" />} label="Week total" value={formatUSD(ws.totalUSD)} sub={`${ws.count} sessions`} subColor="text-gray-400" />
+            <MiniCard icon={<Users size={13} className="text-blue-400" />} label="Avg viewers" value={String(ws.avgViewers)} sub={formatMinutes(ws.totalMins) + ' streamed'} subColor="text-gray-400" />
           </div>
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="py-16 text-center text-sm text-gray-400">Loading...</div>
-        ) : sessions.length === 0 ? (
-          <div className="py-16 text-center text-sm text-gray-400">No sessions yet.</div>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {sessions.map((s) => (
-              <SessionRow
-                key={s.id}
-                session={s}
-                expanded={expandedId === s.id}
-                onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
-                onUpdateNotes={handleUpdateNotes}
-                isThisWeek={s.session_date >= weekStart && s.session_date <= weekEnd}
-              />
-            ))}
+      {/* Last week summary */}
+      {lws && (
+        <div>
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Last week</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <MiniCard icon={<Trophy size={13} className="text-amber-300" />} label="Best day" value={sd(lws.best.session_date)} sub={formatUSD(lws.best.total_usd_session)} subColor="text-gray-600" />
+            <MiniCard icon={<TrendingDown size={13} className="text-gray-200" />} label="Lowest day" value={sd(lws.worst.session_date)} sub={formatUSD(lws.worst.total_usd_session)} subColor="text-gray-400" />
+            <MiniCard icon={<DollarSign size={13} className="text-emerald-300" />} label="Week total" value={formatUSD(lws.totalUSD)} sub={`${lws.count} sessions`} subColor="text-gray-400" />
+            <MiniCard icon={<Users size={13} className="text-blue-300" />} label="Avg viewers" value={String(lws.avgViewers)} sub={formatMinutes(lws.totalMins) + ' streamed'} subColor="text-gray-400" />
           </div>
-        )}
+        </div>
+      )}
+
+      {/* This month summary */}
+      {ms && (
+        <div>
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">This month</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <MiniCard icon={<Trophy size={13} className="text-amber-400" />} label="Best day" value={sd(ms.best.session_date)} sub={formatUSD(ms.best.total_usd_session)} subColor="text-brand" />
+            <MiniCard icon={<TrendingDown size={13} className="text-gray-300" />} label="Lowest day" value={sd(ms.worst.session_date)} sub={formatUSD(ms.worst.total_usd_session)} subColor="text-gray-400" />
+            <MiniCard icon={<DollarSign size={13} className="text-green-400" />} label="Month total" value={formatUSD(ms.totalUSD)} sub={`${ms.count} sessions`} subColor="text-gray-400" />
+            <MiniCard icon={<Users size={13} className="text-blue-400" />} label="Avg viewers" value={String(ms.avgViewers)} sub={formatMinutes(ms.totalMins) + ' streamed'} subColor="text-gray-400" />
+          </div>
+        </div>
+      )}
+
+      {/* Depth filter tabs + session list */}
+      <div className="space-y-3">
+        <div className="flex gap-1 bg-gray-100/70 p-1 rounded-xl w-fit">
+          {depthTabs.map((t) => (
+            <button key={t.key} onClick={() => setDepthFilter(t.key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                depthFilter === t.key ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              {t.label}
+              {t.count > 0 && (
+                <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  depthFilter === t.key ? 'bg-brand text-white' : 'bg-gray-200 text-gray-500'
+                }`}>{t.count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          {loading ? (
+            <div className="py-16 text-center text-sm text-gray-400">Loading...</div>
+          ) : filteredSessions.length === 0 ? (
+            <div className="py-16 text-center text-sm text-gray-400">No sessions in this period.</div>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {filteredSessions.map((s) => (
+                <SessionRow
+                  key={s.id}
+                  session={s}
+                  expanded={expandedId === s.id}
+                  onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
+                  onUpdateNotes={handleUpdateNotes}
+                  isThisWeek={s.session_date >= weekStart && s.session_date <= weekEnd}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <SlideOver isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title="Add Session">
@@ -174,6 +242,7 @@ function SessionRow({
   const [isEditing, setIsEditing] = useState(false)
   const moodRating = (session as any).mood_rating
   const streamType = (session as any).stream_type
+  const prepTimeMins = (session as any).prep_time_minutes ?? 0
   const dow = new Date(session.session_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })
   const mmdd = new Date(session.session_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
@@ -213,7 +282,7 @@ function SessionRow({
             <span>&middot;</span>
             <span>{formatMinutes(session.stream_length_minutes)}</span>
             <span>&middot;</span>
-            <span>{session.avg_viewers} viewers</span>
+            <span>{session.most_viewers} peak</span>
             <span>&middot;</span>
             <span>#{session.best_rank}</span>
           </div>
@@ -231,21 +300,43 @@ function SessionRow({
       {expanded && (
         <div className="px-4 pb-4 bg-blue-50/20 border-t border-blue-100/60">
           <div className="grid grid-cols-3 md:grid-cols-6 gap-3 pt-3 pb-3">
-            {(
-              [
-                ['Peak viewers', session.most_viewers],
-                ['Best rank', `#${session.best_rank}`],
-                ['Members tipped', session.members_tipped],
-                ['Tips (tokens)', session.tips_this_session],
-                ['Page #', session.page_number],
-                ['$/hr', formatUSD(session.usd_per_hour)],
-              ] as [string, any][]
-            ).map(([label, value]) => (
-              <div key={label}>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
-                <p className="text-sm font-bold text-gray-900 mt-0.5">{value ?? '—'}</p>
-              </div>
-            ))}
+            {/* Viewers: peak primary, avg secondary */}
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Peak viewers</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">{session.most_viewers ?? '—'}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">avg {session.avg_viewers}</p>
+            </div>
+            {/* Session earnings */}
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Earnings</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">{formatUSD(session.total_usd_session)}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">{formatUSD(session.usd_per_hour)}/hr</p>
+            </div>
+            {/* Tips: tokens primary, members secondary */}
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Tips (tokens)</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">{session.tips_this_session?.toLocaleString() ?? '—'}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">{session.members_tipped} tippers</p>
+            </div>
+            {/* Page number — show as decimal */}
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Page #</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">
+                {session.page_number != null ? Number(session.page_number).toFixed(1) : '—'}
+              </p>
+            </div>
+            {/* Best rank */}
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Best rank</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">#{session.best_rank}</p>
+            </div>
+            {/* Prep time if available */}
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Prep time</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">
+                {prepTimeMins > 0 ? `${prepTimeMins}m` : '—'}
+              </p>
+            </div>
           </div>
           <div className="border-t border-blue-100/80 pt-3">
             <div className="flex items-center justify-between mb-1.5">

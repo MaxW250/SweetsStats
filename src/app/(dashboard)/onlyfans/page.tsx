@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { Plus, TrendingUp, Users, DollarSign, Zap } from 'lucide-react'
+import { formatUSD, formatDate } from '@/lib/utils'
 
 interface OFEntry {
   id: string
@@ -16,9 +17,19 @@ interface OFEntry {
   notes: string | null
 }
 
+interface Session {
+  id: string
+  session_date: string
+  start_time: string
+  stream_length_minutes: number
+  most_viewers: number
+  avg_viewers: number
+  total_usd_session: number
+}
+
 export default function OnlyFansPage() {
   const [entries, setEntries] = useState<OFEntry[]>([])
-  const [sessions, setSessions] = useState<any[]>([])
+  const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
@@ -44,6 +55,20 @@ export default function OnlyFansPage() {
       setLoading(false)
     })
   }, [])
+
+  // Map session ID → session object for fast lookups
+  const sessionById = useMemo(() => {
+    const map: Record<string, Session> = {}
+    sessions.forEach((s) => { map[s.id] = s })
+    return map
+  }, [sessions])
+
+  // Map session date → session for fallback lookup when no stream_session_id
+  const sessionByDate = useMemo(() => {
+    const map: Record<string, Session> = {}
+    sessions.forEach((s) => { map[s.session_date] = s })
+    return map
+  }, [sessions])
 
   const sessionsOnDate = useMemo(() => {
     return sessions.filter((s: any) => s.session_date === form.entry_date)
@@ -71,16 +96,23 @@ export default function OnlyFansPage() {
     } finally { setSaving(false) }
   }
 
-  // Chart data — last 60 days
+  // Chart data — last 60 days, with linked session info
   const last60 = useMemo(() => {
     const sorted = [...entries].sort((a, b) => a.entry_date.localeCompare(b.entry_date)).slice(-60)
-    return sorted.map((e) => ({
-      date: e.entry_date.slice(5), // MM-DD
-      newSubs: e.new_subs,
-      revenue: Number(e.revenue_usd),
-      streamed: e.streamed_that_day,
-    }))
-  }, [entries])
+    return sorted.map((e) => {
+      const linkedSess = e.stream_session_id
+        ? sessionById[e.stream_session_id]
+        : (e.streamed_that_day ? sessionByDate[e.entry_date] : undefined)
+      return {
+        date: e.entry_date.slice(5),
+        newSubs: e.new_subs,
+        revenue: Number(e.revenue_usd),
+        streamed: e.streamed_that_day,
+        cbEarnings: linkedSess?.total_usd_session ?? null,
+        peakViewers: linkedSess?.most_viewers ?? null,
+      }
+    })
+  }, [entries, sessionById, sessionByDate])
 
   // Monthly revenue
   const monthlyRevenue = useMemo(() => {
@@ -92,7 +124,7 @@ export default function OnlyFansPage() {
     return Object.entries(map).sort().map(([month, usd]) => ({ month, usd }))
   }, [entries])
 
-  // Stream day vs non-stream day avg subs
+  // Stream impact
   const streamImpact = useMemo(() => {
     const stream = entries.filter((e) => e.streamed_that_day)
     const noStream = entries.filter((e) => !e.streamed_that_day)
@@ -102,7 +134,7 @@ export default function OnlyFansPage() {
     return { avgStream: Math.round(avgStream * 10) / 10, avgNo: Math.round(avgNo * 10) / 10, pct }
   }, [entries])
 
-  // Monthly stacked: CB earnings + OF revenue
+  // Monthly stacked: CB + OF
   const stackedMonthly = useMemo(() => {
     const map: Record<string, { of: number; cb: number }> = {}
     entries.forEach((e) => {
@@ -113,11 +145,44 @@ export default function OnlyFansPage() {
     return Object.entries(map).sort().map(([month, v]) => ({ month: month.slice(5), of: v.of, cb: v.cb }))
   }, [entries])
 
+  // Combined data table — all entries sorted desc
+  const tableRows = useMemo(() => {
+    return [...entries].sort((a, b) => b.entry_date.localeCompare(a.entry_date)).map((e) => {
+      const linkedSess = e.stream_session_id
+        ? sessionById[e.stream_session_id]
+        : (e.streamed_that_day ? sessionByDate[e.entry_date] : undefined)
+      return {
+        ...e,
+        cbEarnings: linkedSess?.total_usd_session ?? null,
+        peakViewers: linkedSess?.most_viewers ?? null,
+        streamMins: linkedSess?.stream_length_minutes ?? null,
+      }
+    })
+  }, [entries, sessionById, sessionByDate])
+
   const totalRevenue = entries.reduce((s, e) => s + Number(e.revenue_usd), 0)
   const totalSubs = entries.reduce((s, e) => s + e.new_subs, 0)
 
   const INPUT = 'w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand/20'
   const LABEL = 'block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5'
+
+  // Custom tooltip for the subs bar chart
+  const SubsTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null
+    const d = payload[0].payload
+    return (
+      <div className="bg-white border border-gray-100 rounded-xl shadow-lg p-3 text-xs space-y-1" style={{ minWidth: 140 }}>
+        <p className="font-semibold text-gray-700">{label}</p>
+        <p className="text-gray-600">New subs: <span className="font-bold text-gray-900">{d.newSubs}</span></p>
+        {d.streamed && (
+          <>
+            {d.cbEarnings != null && <p className="text-brand">CB earnings: <span className="font-bold">{formatUSD(d.cbEarnings)}</span></p>}
+            {d.peakViewers != null && <p className="text-gray-600">Peak viewers: <span className="font-bold text-gray-900">{d.peakViewers}</span></p>}
+          </>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-5xl mx-auto">
@@ -199,7 +264,7 @@ export default function OnlyFansPage() {
         ))}
       </div>
 
-      {/* Stream impact comparison card */}
+      {/* Stream impact comparison */}
       {entries.length >= 5 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">CB stream effect on OF subs</h3>
@@ -213,9 +278,7 @@ export default function OnlyFansPage() {
                 {streamImpact.pct >= 0 ? '+' : ''}{streamImpact.pct}%
               </div>
               <p className="text-xs text-gray-400 mt-1">
-                {streamImpact.pct >= 0
-                  ? 'more subs on stream days'
-                  : 'fewer subs on stream days'}
+                {streamImpact.pct >= 0 ? 'more subs on stream days' : 'fewer subs on stream days'}
               </p>
             </div>
             <div className="text-center">
@@ -232,14 +295,15 @@ export default function OnlyFansPage() {
         <div className="py-12 text-center text-sm text-gray-400">Add more entries to see charts.</div>
       ) : (
         <div className="space-y-4">
-          {/* New subs per day */}
+          {/* New subs per day — hover shows CB data on stream days */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">New subs per day (last 60d)</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-1">New subs per day (last 60d)</h3>
+            <p className="text-[11px] text-gray-400 mb-4">Hover stream days (blue) to see CB earnings + peak viewers</p>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={last60} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} interval={6} />
                 <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #f3f4f6' }} />
+                <Tooltip content={<SubsTooltip />} />
                 <Bar dataKey="newSubs" radius={[3, 3, 0, 0]}>
                   {last60.map((e, i) => (
                     <Cell key={i} fill={e.streamed ? '#2563EB' : '#d1d5db'} />
@@ -253,7 +317,7 @@ export default function OnlyFansPage() {
             </div>
           </div>
 
-          {/* Monthly revenue */}
+          {/* Monthly OF revenue */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h3 className="text-sm font-semibold text-gray-700 mb-4">Monthly OF revenue</h3>
             <ResponsiveContainer width="100%" height={180}>
@@ -266,7 +330,7 @@ export default function OnlyFansPage() {
             </ResponsiveContainer>
           </div>
 
-          {/* Monthly stacked */}
+          {/* Monthly stacked CB + OF */}
           {stackedMonthly.length >= 2 && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <h3 className="text-sm font-semibold text-gray-700 mb-4">Monthly CB + OF combined revenue</h3>
@@ -285,6 +349,48 @@ export default function OnlyFansPage() {
               </div>
             </div>
           )}
+
+          {/* Cross-reference data table */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-700">Full data log</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5">CB earnings and viewers pulled from linked stream sessions</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">New subs</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">OF revenue</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Streamed?</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">CB earnings</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Peak viewers</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {tableRows.map((row) => (
+                    <tr key={row.id} className="hover:bg-gray-50/50">
+                      <td className="px-4 py-3 font-medium text-gray-700">{formatDate(row.entry_date)}</td>
+                      <td className="px-4 py-3 text-gray-900 font-semibold">{row.new_subs}</td>
+                      <td className="px-4 py-3 text-gray-700">${Number(row.revenue_usd).toFixed(2)}</td>
+                      <td className="px-4 py-3">
+                        {row.streamed_that_day
+                          ? <span className="text-[11px] bg-blue-50 text-brand font-semibold px-2 py-0.5 rounded-full">Yes</span>
+                          : <span className="text-[11px] text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {row.cbEarnings != null ? formatUSD(row.cbEarnings) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {row.peakViewers != null ? row.peakViewers.toLocaleString() : <span className="text-gray-300">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
     </div>
