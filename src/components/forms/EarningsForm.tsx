@@ -55,7 +55,7 @@ export function EarningsForm({ onSubmit, onSuccess, isLoading = false }: Earning
           onChange={(e) =>
             setFormData({ ...formData, earnings_date: e.target.value })
           }
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
         />
       </div>
 
@@ -71,7 +71,7 @@ export function EarningsForm({ onSubmit, onSuccess, isLoading = false }: Earning
             onChange={(e) =>
               setFormData({ ...formData, total_usd: parseFloat(e.target.value) })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
         <div>
@@ -84,7 +84,7 @@ export function EarningsForm({ onSubmit, onSuccess, isLoading = false }: Earning
             onChange={(e) =>
               setFormData({ ...formData, total_tokens: parseInt(e.target.value) })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
       </div>
@@ -100,7 +100,7 @@ export function EarningsForm({ onSubmit, onSuccess, isLoading = false }: Earning
             onChange={(e) =>
               setFormData({ ...formData, number_of_tips: parseInt(e.target.value) })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
         <div>
@@ -113,7 +113,7 @@ export function EarningsForm({ onSubmit, onSuccess, isLoading = false }: Earning
             onChange={(e) =>
               setFormData({ ...formData, number_of_streams: parseInt(e.target.value) })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
       </div>
@@ -130,7 +130,7 @@ export function EarningsForm({ onSubmit, onSuccess, isLoading = false }: Earning
             onChange={(e) =>
               setFormData({ ...formData, avg_tip_usd: parseFloat(e.target.value) })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
         <div>
@@ -143,7 +143,7 @@ export function EarningsForm({ onSubmit, onSuccess, isLoading = false }: Earning
             onChange={(e) =>
               setFormData({ ...formData, avg_tip_tokens: parseInt(e.target.value) })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
       </div>
@@ -158,7 +158,7 @@ export function EarningsForm({ onSubmit, onSuccess, isLoading = false }: Earning
           onChange={(e) =>
             setFormData({ ...formData, highest_tipper_username: e.target.value })
           }
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
         />
       </div>
 
@@ -173,7 +173,7 @@ export function EarningsForm({ onSubmit, onSuccess, isLoading = false }: Earning
             onChange={(e) =>
               setFormData({ ...formData, highest_tip_tokens: parseInt(e.target.value) })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
         <div>
@@ -187,7 +187,7 @@ export function EarningsForm({ onSubmit, onSuccess, isLoading = false }: Earning
             onChange={(e) =>
               setFormData({ ...formData, highest_tip_usd: parseFloat(e.target.value) })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
       </div>
@@ -195,7 +195,7 @@ export function EarningsForm({ onSubmit, onSuccess, isLoading = false }: Earning
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full bg-coral hover:bg-[#e86a5a] text-white font-medium py-2 rounded-lg transition-colors disabled:opacity-50"
+        className="w-full bg-brand hover:bg-[#1d4ed8] text-white font-medium py-2 rounded-lg transition-colors disabled:opacity-50"
       >
         {isLoading ? 'Creating...' : 'Add Earnings'}
       </button>

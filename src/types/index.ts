@@ -21,6 +21,9 @@ export interface StreamSession {
   notes: string | null
   metadata: Record<string, unknown> | null
   created_at: string
+  prep_time_minutes?: number
+  mood_rating?: number | null
+  stream_type?: string | null
 }
 
 export interface DailyEarning {
@@ -51,6 +54,9 @@ export interface Tipper {
   last_seen_date: string
   notes: string | null
   created_at: string
+  is_vip?: boolean
+  last_tip_date?: string | null
+  consecutive_absent_streams?: number
 }
 
 export interface Goal {

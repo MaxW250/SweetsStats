@@ -1,322 +1,285 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { formatUSD, formatDate, formatMinutes, formatDateTime } from '@/lib/utils'
+import { useState, useEffect, useMemo } from 'react'
+import { formatUSD, formatMinutes } from '@/lib/utils'
 import { SlideOver } from '@/components/ui/SlideOver'
 import { SessionForm } from '@/components/forms/SessionForm'
+import { Plus, TrendingDown, Trophy, DollarSign, Users } from 'lucide-react'
 import type { StreamSession } from '@/types'
+
+function getThisWeekRange() {
+  const now = new Date()
+  const day = now.getDay()
+  const mon = new Date(now)
+  mon.setDate(now.getDate() - ((day + 6) % 7))
+  const sun = new Date(mon)
+  sun.setDate(mon.getDate() + 6)
+  return { start: mon.toISOString().split('T')[0], end: sun.toISOString().split('T')[0] }
+}
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<StreamSession[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [dayOfWeek, setDayOfWeek] = useState('')
-  const [timeOfDay, setTimeOfDay] = useState('')
 
-  useEffect(() => {
-    fetchSessions()
-  }, [])
+  useEffect(() => { fetchSessions() }, [])
 
   const fetchSessions = async () => {
     setLoading(true)
-    try {
-      const params = new URLSearchParams()
-      if (startDate) params.append('start_date', startDate)
-      if (endDate) params.append('end_date', endDate)
-
-      const response = await fetch(`/api/sessions?${params}`)
-      const data = await response.json()
-      let filtered = data
-
-      if (dayOfWeek) {
-        filtered = filtered.filter((s: StreamSession) => {
-          const dayName = new Date(s.session_date).toLocaleDateString('en-US', { weekday: 'long' })
-          return dayName === dayOfWeek
-        })
-      }
-
-      if (timeOfDay) {
-        filtered = filtered.filter((s: StreamSession) => {
-          const hour = parseInt(s.start_time.split(':')[0])
-          switch (timeOfDay) {
-            case 'morning':
-              return hour >= 6 && hour < 12
-            case 'afternoon':
-              return hour >= 12 && hour < 18
-            case 'evening':
-              return hour >= 18 && hour < 21
-            case 'night':
-              return hour >= 21 || hour < 6
-            default:
-              return true
-          }
-        })
-      }
-
-      setSessions(filtered)
-    } catch (error) {
-      console.error('Failed to fetch sessions:', error)
-    } finally {
-      setLoading(false)
-    }
+    try { setSessions(await (await fetch('/api/sessions')).json()) }
+    catch (e) { console.error(e) }
+    finally { setLoading(false) }
   }
 
-  const handleAddSession = async () => {
-    await fetchSessions()
-    setIsFormOpen(false)
-  }
+  const handleAddSession = async () => { await fetchSessions(); setIsFormOpen(false) }
 
   const handleUpdateNotes = async (id: string, notes: string) => {
-    try {
-      await fetch(`/api/sessions/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes }),
-      })
-      await fetchSessions()
-      setExpandedId(null)
-    } catch (error) {
-      console.error('Failed to update session:', error)
-    }
+    await fetch(`/api/sessions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes }),
+    })
+    await fetchSessions()
+    setExpandedId(null)
   }
 
+  const { start: weekStart, end: weekEnd } = getThisWeekRange()
+  const thisWeek = useMemo(
+    () => sessions.filter((s) => s.session_date >= weekStart && s.session_date <= weekEnd),
+    [sessions, weekStart, weekEnd]
+  )
+
+  const ws = useMemo(() => {
+    if (!thisWeek.length) return null
+    const sorted = [...thisWeek].sort((a, b) => (b.total_usd_session ?? 0) - (a.total_usd_session ?? 0))
+    return {
+      best: sorted[0],
+      worst: sorted[sorted.length - 1],
+      totalUSD: thisWeek.reduce((s, x) => s + (x.total_usd_session ?? 0), 0),
+      totalMins: thisWeek.reduce((s, x) => s + (x.stream_length_minutes ?? 0), 0),
+      avgViewers: Math.round(thisWeek.reduce((s, x) => s + (x.avg_viewers ?? 0), 0) / thisWeek.length),
+      count: thisWeek.length,
+    }
+  }, [thisWeek])
+
+  const sd = (d: string) =>
+    new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+
   return (
-    <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="p-4 md:p-6 space-y-5 max-w-5xl mx-auto">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl md:text-4xl font-serif font-bold text-gray-900">
-            Stream Sessions
-          </h1>
-          <p className="text-gray-600 mt-2">Manage and analyze your stream history</p>
+          <h1 className="text-xl font-bold text-gray-900">Sessions</h1>
+          <p className="text-sm text-gray-400 mt-0.5">
+            {sessions.length} total &middot; {thisWeek.length} this week
+          </p>
         </div>
         <button
           onClick={() => setIsFormOpen(true)}
-          className="px-4 py-2 bg-coral hover:bg-[#e86a5a] text-white rounded-lg font-medium transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2 bg-brand hover:bg-[#1d4ed8] text-white rounded-xl text-sm font-medium transition-colors"
         >
-          + Add Session
+          <Plus size={15} /> Add Session
         </button>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">
-              Start Date
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value)
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+      {ws && (
+        <div>
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">This week</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <MiniCard
+              icon={<Trophy size={13} className="text-amber-400" />}
+              label="Best day"
+              value={sd(ws.best.session_date)}
+              sub={formatUSD(ws.best.total_usd_session)}
+              subColor="text-brand"
+            />
+            <MiniCard
+              icon={<TrendingDown size={13} className="text-gray-300" />}
+              label="Lowest day"
+              value={sd(ws.worst.session_date)}
+              sub={formatUSD(ws.worst.total_usd_session)}
+              subColor="text-gray-400"
+            />
+            <MiniCard
+              icon={<DollarSign size={13} className="text-green-400" />}
+              label="Week total"
+              value={formatUSD(ws.totalUSD)}
+              sub={`${ws.count} sessions`}
+              subColor="text-gray-400"
+            />
+            <MiniCard
+              icon={<Users size={13} className="text-blue-400" />}
+              label="Avg viewers"
+              value={String(ws.avgViewers)}
+              sub={formatMinutes(ws.totalMins) + ' streamed'}
+              subColor="text-gray-400"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">
-              End Date
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value)
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">
-              Day of Week
-            </label>
-            <select
-              value={dayOfWeek}
-              onChange={(e) => setDayOfWeek(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            >
-              <option value="">All Days</option>
-              <option value="Monday">Monday</option>
-              <option value="Tuesday">Tuesday</option>
-              <option value="Wednesday">Wednesday</option>
-              <option value="Thursday">Thursday</option>
-              <option value="Friday">Friday</option>
-              <option value="Saturday">Saturday</option>
-              <option value="Sunday">Sunday</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">
-              Time of Day
-            </label>
-            <select
-              value={timeOfDay}
-              onChange={(e) => setTimeOfDay(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            >
-              <option value="">All Times</option>
-              <option value="morning">Morning (6am-12pm)</option>
-              <option value="afternoon">Afternoon (12pm-6pm)</option>
-              <option value="evening">Evening (6pm-9pm)</option>
-              <option value="night">Night (9pm-6am)</option>
-            </select>
-          </div>
         </div>
-        <button
-          onClick={fetchSessions}
-          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-lg font-medium transition-colors"
-        >
-          Apply Filters
-        </button>
-      </div>
+      )}
 
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Date</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Time</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Length</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Peak</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Avg</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Rank</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Followers+</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Tips</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">USD</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">$/hr</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
-                    Loading sessions...
-                  </td>
-                </tr>
-              ) : sessions.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
-                    No sessions found
-                  </td>
-                </tr>
-              ) : (
-                sessions.map((session) => (
-                  <tr
-                    key={session.id}
-                    onClick={() => setExpandedId(expandedId === session.id ? null : session.id)}
-                    className="hover:bg-gray-50 cursor-pointer"
-                  >
-                    <td className="px-6 py-3">{formatDate(session.session_date)}</td>
-                    <td className="px-6 py-3">{session.start_time}</td>
-                    <td className="px-6 py-3">{formatMinutes(session.stream_length_minutes)}</td>
-                    <td className="px-6 py-3">{session.most_viewers}</td>
-                    <td className="px-6 py-3">{session.avg_viewers}</td>
-                    <td className="px-6 py-3">#{session.best_rank}</td>
-                    <td className="px-6 py-3">+{session.followers_gained}</td>
-                    <td className="px-6 py-3">{session.tips_this_session}</td>
-                    <td className="px-6 py-3 font-medium text-coral">
-                      {formatUSD(session.total_usd_session)}
-                    </td>
-                    <td className="px-6 py-3">{formatUSD(session.usd_per_hour)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {expandedId && (
-          <div className="bg-gray-50 border-t border-gray-200 p-6">
-            {sessions.find((s) => s.id === expandedId) && (
-              <SessionDetailExpanded
-                session={sessions.find((s) => s.id === expandedId)!}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="py-16 text-center text-sm text-gray-400">Loading...</div>
+        ) : sessions.length === 0 ? (
+          <div className="py-16 text-center text-sm text-gray-400">No sessions yet.</div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {sessions.map((s) => (
+              <SessionRow
+                key={s.id}
+                session={s}
+                expanded={expandedId === s.id}
+                onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
                 onUpdateNotes={handleUpdateNotes}
+                isThisWeek={s.session_date >= weekStart && s.session_date <= weekEnd}
               />
-            )}
+            ))}
           </div>
         )}
       </div>
 
-      <SlideOver
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        title="Add New Session"
-      >
+      <SlideOver isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title="Add Session">
         <SessionForm onSuccess={handleAddSession} />
       </SlideOver>
     </div>
   )
 }
 
-function SessionDetailExpanded({
-  session,
-  onUpdateNotes,
+function MiniCard({
+  icon, label, value, sub, subColor,
 }: {
-  session: StreamSession
-  onUpdateNotes: (id: string, notes: string) => void
+  icon: React.ReactNode; label: string; value: string; sub: string; subColor: string
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        {icon}
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</span>
+      </div>
+      <p className="text-sm font-bold text-gray-900 truncate">{value}</p>
+      <p className={`text-xs font-medium mt-0.5 ${subColor}`}>{sub}</p>
+    </div>
+  )
+}
+
+function SessionRow({
+  session, expanded, onToggle, onUpdateNotes, isThisWeek,
+}: {
+  session: StreamSession; expanded: boolean; onToggle: () => void
+  onUpdateNotes: (id: string, notes: string) => void; isThisWeek: boolean
 }) {
   const [notes, setNotes] = useState(session.notes || '')
   const [isEditing, setIsEditing] = useState(false)
-
-  const handleSaveNotes = async () => {
-    await onUpdateNotes(session.id, notes)
-    setIsEditing(false)
-  }
+  const moodRating = (session as any).mood_rating
+  const streamType = (session as any).stream_type
+  const dow = new Date(session.session_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })
+  const mmdd = new Date(session.session_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <p className="text-xs text-gray-600 font-medium">Best Gender Rank</p>
-          <p className="text-lg font-serif font-bold text-gray-900">#{session.best_gender_rank}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-600 font-medium">Avg Gender Rank</p>
-          <p className="text-lg font-serif font-bold text-gray-900">#{session.avg_gender_rank}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-600 font-medium">Page Number</p>
-          <p className="text-lg font-serif font-bold text-gray-900">{session.page_number}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-600 font-medium">Members Tipped</p>
-          <p className="text-lg font-serif font-bold text-gray-900">{session.members_tipped}</p>
-        </div>
-      </div>
-
-      <div className="border-t border-gray-200 pt-4">
-        <div className="flex items-center justify-between mb-3">
-          <label className="block text-sm font-medium text-gray-900">Notes</label>
-          <button
-            onClick={() => setIsEditing(!isEditing)}
-            className="text-sm text-coral hover:text-[#e86a5a]"
-          >
-            {isEditing ? 'Cancel' : 'Edit'}
-          </button>
+    <>
+      <div
+        onClick={onToggle}
+        className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors ${
+          expanded ? 'bg-blue-50/30' : ''
+        }`}
+      >
+        <div className={`w-10 text-center shrink-0 ${isThisWeek ? '' : 'opacity-50'}`}>
+          <div className="text-[10px] font-bold text-gray-400 uppercase">{dow}</div>
+          <div className="text-sm font-bold text-gray-900 leading-tight">{mmdd.split(' ')[1]}</div>
+          <div className="text-[10px] text-gray-400">{mmdd.split(' ')[0]}</div>
         </div>
 
-        {isEditing ? (
-          <div className="space-y-2">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              rows={3}
-            />
-            <button
-              onClick={handleSaveNotes}
-              className="px-3 py-1 bg-coral hover:bg-[#e86a5a] text-white text-sm rounded-lg"
-            >
-              Save
-            </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-gray-900">{formatUSD(session.total_usd_session)}</span>
+            {streamType && (
+              <span className="text-[10px] bg-blue-50 text-brand font-semibold px-1.5 py-0.5 rounded-full">
+                {streamType}
+              </span>
+            )}
+            {moodRating && (
+              <span className="text-[10px] text-amber-400">{'★'.repeat(moodRating)}</span>
+            )}
+            {isThisWeek && (
+              <span className="text-[10px] bg-green-50 text-green-600 font-semibold px-1.5 py-0.5 rounded-full">
+                this week
+              </span>
+            )}
           </div>
-        ) : (
-          <p className="text-gray-700">{notes || 'No notes'}</p>
-        )}
+          <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+            <span>{session.start_time?.slice(0, 5)}</span>
+            <span>&middot;</span>
+            <span>{formatMinutes(session.stream_length_minutes)}</span>
+            <span>&middot;</span>
+            <span>{session.avg_viewers} viewers</span>
+            <span>&middot;</span>
+            <span>#{session.best_rank}</span>
+          </div>
+        </div>
+
+        <div className="text-right shrink-0 hidden sm:block">
+          <div className="text-sm font-semibold text-gray-700">
+            {formatUSD(session.usd_per_hour)}
+            <span className="text-xs font-normal text-gray-400">/hr</span>
+          </div>
+          <div className="text-xs text-gray-400 mt-0.5">+{session.followers_gained} followers</div>
+        </div>
       </div>
-    </div>
+
+      {expanded && (
+        <div className="px-4 pb-4 bg-blue-50/20 border-t border-blue-100/60">
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-3 pt-3 pb-3">
+            {(
+              [
+                ['Peak viewers', session.most_viewers],
+                ['Best rank', `#${session.best_rank}`],
+                ['Members tipped', session.members_tipped],
+                ['Tips (tokens)', session.tips_this_session],
+                ['Page #', session.page_number],
+                ['$/hr', formatUSD(session.usd_per_hour)],
+              ] as [string, any][]
+            ).map(([label, value]) => (
+              <div key={label}>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+                <p className="text-sm font-bold text-gray-900 mt-0.5">{value ?? '—'}</p>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-blue-100/80 pt-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-semibold text-gray-500">Notes</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing) }}
+                className="text-xs text-brand hover:underline"
+              >
+                {isEditing ? 'Cancel' : 'Edit'}
+              </button>
+            </div>
+            {isEditing ? (
+              <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none"
+                  rows={2}
+                />
+                <button
+                  onClick={async () => { await onUpdateNotes(session.id, notes); setIsEditing(false) }}
+                  className="px-3 py-1.5 bg-brand text-white text-xs rounded-lg font-medium"
+                >
+                  Save
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600">
+                {notes || <span className="text-gray-300 italic">No notes</span>}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   )
 }

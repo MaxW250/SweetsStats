@@ -188,8 +188,8 @@ export default function SettingsPage() {
       {/* Chaturbate Integration */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-9 h-9 rounded-xl bg-[#FFF0EE] flex items-center justify-center">
-            <Wifi size={16} style={{ color: '#F97B6B' }} />
+          <div className="w-9 h-9 rounded-xl bg-[#EFF6FF] flex items-center justify-center">
+            <Wifi size={16} style={{ color: '#2563EB' }} />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-gray-900">Chaturbate Integration</h3>
@@ -207,7 +207,7 @@ export default function SettingsPage() {
               value={chaturbateUsername}
               onChange={(e) => setChaturbateUsername(e.target.value)}
               placeholder="e.g. your_model_name"
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F97B6B]/30 focus:border-[#F97B6B]"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
             />
           </div>
 
@@ -220,7 +220,7 @@ export default function SettingsPage() {
               value={chaturbateKey}
               onChange={(e) => setChaturbateKey(e.target.value)}
               placeholder="Your CB affiliate/wm code"
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F97B6B]/30 focus:border-[#F97B6B]"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
             />
             <p className="text-xs text-gray-400 mt-1.5">
               Used to access the Chaturbate affiliates API. If you don't have one, the public API will be used.
@@ -246,7 +246,7 @@ export default function SettingsPage() {
           <button
             onClick={handleSyncNow}
             disabled={syncing || !chaturbateUsername}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#F97B6B] hover:bg-[#e86a5a] text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors"
           >
             <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
             {syncing ? 'Checking...' : 'Sync Now'}
@@ -277,7 +277,7 @@ export default function SettingsPage() {
                 step="0.001"
                 value={tokenRate}
                 onChange={(e) => setTokenRate(parseFloat(e.target.value))}
-                className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F97B6B]/30 focus:border-[#F97B6B]"
+                className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
               />
               <span className="text-sm text-gray-500 whitespace-nowrap">USD per token</span>
             </div>
@@ -290,7 +290,7 @@ export default function SettingsPage() {
             <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F97B6B]/30 focus:border-[#F97B6B]"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
             >
               <option>UTC</option>
               <option>America/New_York</option>
@@ -334,7 +334,7 @@ export default function SettingsPage() {
                 step="0.05"
                 value={weights[key]}
                 onChange={(e) => setWeights({ ...weights, [key]: parseFloat(e.target.value) })}
-                className="w-full accent-[#F97B6B]"
+                className="w-full accent-[#2563EB]"
               />
             </div>
           ))}
@@ -376,7 +376,7 @@ export default function SettingsPage() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F97B6B]/30 focus:border-[#F97B6B]"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
             />
           </div>
           <div>
@@ -387,7 +387,7 @@ export default function SettingsPage() {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F97B6B]/30 focus:border-[#F97B6B]"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
             />
           </div>
           <button
@@ -405,7 +405,7 @@ export default function SettingsPage() {
       <button
         onClick={handleSaveSettings}
         disabled={loading}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#F97B6B] hover:bg-[#e86a5a] text-white font-semibold rounded-xl disabled:opacity-50 transition-colors"
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-semibold rounded-xl disabled:opacity-50 transition-colors"
       >
         <Save size={16} />
         {loading ? 'Saving...' : 'Save Settings'}

@@ -29,7 +29,7 @@ export function StatCard({ title, value, subtitle, accent, icon }: StatCardProps
             )}
           </div>
           {icon && (
-            <div className="text-coral shrink-0">{icon}</div>
+            <div className="text-brand shrink-0">{icon}</div>
           )}
         </div>
       </CardBody>

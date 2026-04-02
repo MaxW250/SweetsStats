@@ -10,6 +10,9 @@ interface SessionFormProps {
   isLoading?: boolean
 }
 
+const INPUT = 'w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand'
+const LABEL = 'block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5'
+
 export function SessionForm({ onSubmit, onSuccess, isLoading = false }: SessionFormProps) {
   const router = useRouter()
   const [formData, setFormData] = useState({
@@ -30,227 +33,115 @@ export function SessionForm({ onSubmit, onSuccess, isLoading = false }: SessionF
     members_tipped: 10,
     usd_per_hour: 25,
     total_usd_session: 50,
+    prep_time_minutes: 0,
+    mood_rating: 0,
+    stream_type: '',
     notes: '',
   })
 
+  const set = (k: string, v: any) => setFormData((f) => ({ ...f, [k]: v }))
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    const payload = { ...formData, mood_rating: formData.mood_rating || null }
     if (onSubmit) {
-      onSubmit(formData)
+      onSubmit(payload)
     } else {
       try {
         const response = await fetch('/api/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         })
-        if (response.ok) {
-          router.refresh()
-          if (onSuccess) onSuccess()
-        }
-      } catch (error) {
-        console.error(error)
-      }
+        if (response.ok) { router.refresh(); if (onSuccess) onSuccess() }
+      } catch (error) { console.error(error) }
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">
-            Date
-          </label>
-          <input
-            type="date"
-            value={formData.session_date}
-            onChange={(e) =>
-              setFormData({ ...formData, session_date: e.target.value })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">
-            Start Time
-          </label>
-          <input
-            type="time"
-            value={formData.start_time}
-            onChange={(e) =>
-              setFormData({ ...formData, start_time: e.target.value })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
-          />
-        </div>
+      {/* Date + time */}
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={LABEL}>Date</label>
+          <input type="date" value={formData.session_date} onChange={(e) => set('session_date', e.target.value)} className={INPUT} /></div>
+        <div><label className={LABEL}>Start time</label>
+          <input type="time" value={formData.start_time} onChange={(e) => set('start_time', e.target.value)} className={INPUT} /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={LABEL}>End time</label>
+          <input type="time" value={formData.end_time} onChange={(e) => set('end_time', e.target.value)} className={INPUT} /></div>
+        <div><label className={LABEL}>Length (min)</label>
+          <input type="number" value={formData.stream_length_minutes} onChange={(e) => set('stream_length_minutes', parseInt(e.target.value))} className={INPUT} /></div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      {/* Stream type + prep time */}
+      <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">
-            End Time
-          </label>
-          <input
-            type="time"
-            value={formData.end_time}
-            onChange={(e) =>
-              setFormData({ ...formData, end_time: e.target.value })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
-          />
+          <label className={LABEL}>Stream type</label>
+          <select value={formData.stream_type} onChange={(e) => set('stream_type', e.target.value)} className={INPUT}>
+            <option value="">— none —</option>
+            <option>Regular</option>
+            <option>Special event</option>
+            <option>Goal show</option>
+            <option>Collab</option>
+          </select>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">
-            Stream Length (min)
-          </label>
-          <input
-            type="number"
-            value={formData.stream_length_minutes}
-            onChange={(e) =>
-              setFormData({ ...formData, stream_length_minutes: parseInt(e.target.value) })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
-          />
-        </div>
+        <div><label className={LABEL}>Prep time (min)</label>
+          <input type="number" min={0} value={formData.prep_time_minutes} onChange={(e) => set('prep_time_minutes', parseInt(e.target.value) || 0)} className={INPUT} /></div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">
-            Peak Viewers
-          </label>
-          <input
-            type="number"
-            value={formData.most_viewers}
-            onChange={(e) =>
-              setFormData({ ...formData, most_viewers: parseInt(e.target.value) })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">
-            Avg Viewers
-          </label>
-          <input
-            type="number"
-            value={formData.avg_viewers}
-            onChange={(e) =>
-              setFormData({ ...formData, avg_viewers: parseInt(e.target.value) })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">
-            Best Rank
-          </label>
-          <input
-            type="number"
-            value={formData.best_rank}
-            onChange={(e) =>
-              setFormData({ ...formData, best_rank: parseInt(e.target.value) })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">
-            Avg Rank
-          </label>
-          <input
-            type="number"
-            value={formData.avg_rank}
-            onChange={(e) =>
-              setFormData({ ...formData, avg_rank: parseInt(e.target.value) })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">
-            Start Followers
-          </label>
-          <input
-            type="number"
-            value={formData.start_followers}
-            onChange={(e) =>
-              setFormData({ ...formData, start_followers: parseInt(e.target.value) })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">
-            End Followers
-          </label>
-          <input
-            type="number"
-            value={formData.end_followers}
-            onChange={(e) =>
-              setFormData({ ...formData, end_followers: parseInt(e.target.value) })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">
-            Tips
-          </label>
-          <input
-            type="number"
-            value={formData.tips_this_session}
-            onChange={(e) =>
-              setFormData({ ...formData, tips_this_session: parseInt(e.target.value) })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">
-            Total USD
-          </label>
-          <input
-            type="number"
-            step="0.01"
-            value={formData.total_usd_session}
-            onChange={(e) =>
-              setFormData({ ...formData, total_usd_session: parseFloat(e.target.value) })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
-          />
-        </div>
-      </div>
-
+      {/* Mood */}
       <div>
-        <label className="block text-sm font-medium text-gray-900 mb-1">
-          Notes
-        </label>
-        <textarea
-          value={formData.notes}
-          onChange={(e) =>
-            setFormData({ ...formData, notes: e.target.value })
-          }
-          rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
-        />
+        <label className={LABEL}>Mood</label>
+        <div className="flex gap-2">
+          {[1,2,3,4,5].map((n) => (
+            <button key={n} type="button"
+              onClick={() => set('mood_rating', formData.mood_rating === n ? 0 : n)}
+              className={`text-2xl transition-opacity ${n <= formData.mood_rating ? 'opacity-100' : 'opacity-25'}`}
+            >★</button>
+          ))}
+        </div>
       </div>
 
-      <button
-        type="submit"
-        disabled={isLoading}
-        className="w-full bg-coral hover:bg-[#e86a5a] text-white font-medium py-2 rounded-lg transition-colors disabled:opacity-50"
-      >
-        {isLoading ? 'Creating...' : 'Add Session'}
+      {/* Viewers */}
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={LABEL}>Peak viewers</label>
+          <input type="number" value={formData.most_viewers} onChange={(e) => set('most_viewers', parseInt(e.target.value))} className={INPUT} /></div>
+        <div><label className={LABEL}>Avg viewers</label>
+          <input type="number" value={formData.avg_viewers} onChange={(e) => set('avg_viewers', parseInt(e.target.value))} className={INPUT} /></div>
+      </div>
+
+      {/* Ranks */}
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={LABEL}>Best rank</label>
+          <input type="number" value={formData.best_rank} onChange={(e) => set('best_rank', parseInt(e.target.value))} className={INPUT} /></div>
+        <div><label className={LABEL}>Avg rank</label>
+          <input type="number" value={formData.avg_rank} onChange={(e) => set('avg_rank', parseInt(e.target.value))} className={INPUT} /></div>
+      </div>
+
+      {/* Followers */}
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={LABEL}>Start followers</label>
+          <input type="number" value={formData.start_followers} onChange={(e) => set('start_followers', parseInt(e.target.value))} className={INPUT} /></div>
+        <div><label className={LABEL}>End followers</label>
+          <input type="number" value={formData.end_followers} onChange={(e) => set('end_followers', parseInt(e.target.value))} className={INPUT} /></div>
+      </div>
+
+      {/* Tips + USD */}
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={LABEL}>Tips (tokens)</label>
+          <input type="number" value={formData.tips_this_session} onChange={(e) => set('tips_this_session', parseInt(e.target.value))} className={INPUT} /></div>
+        <div><label className={LABEL}>Total USD</label>
+          <input type="number" step="0.01" value={formData.total_usd_session} onChange={(e) => set('total_usd_session', parseFloat(e.target.value))} className={INPUT} /></div>
+      </div>
+
+      <div><label className={LABEL}>Notes</label>
+        <textarea value={formData.notes} onChange={(e) => set('notes', e.target.value)} rows={2}
+          className={INPUT + ' resize-none'} /></div>
+
+      <button type="submit" disabled={isLoading}
+        className="w-full bg-brand hover:bg-[#1d4ed8] text-white font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-50">
+        {isLoading ? 'Saving...' : 'Add Session'}
       </button>
     </form>
   )

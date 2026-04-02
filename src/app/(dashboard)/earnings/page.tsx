@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { formatUSD, formatDate } from '@/lib/utils'
-import type { DailyEarning } from '@/types'
+import type { DailyEarning, StreamSession } from '@/types'
 import {
   BarChart,
   Bar,
@@ -14,7 +14,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { TrendingUp, Star, Calendar, Activity } from 'lucide-react'
+import { TrendingUp, Star, Calendar, Activity, Clock } from 'lucide-react'
 
 type Timeframe = 'daily' | 'weekly' | 'monthly'
 
@@ -29,7 +29,7 @@ const TOOLTIP_STYLE = {
 }
 
 function StatCard({
-  label, value, sub, icon: Icon, color = '#F97B6B', bg = '#FFF0EE',
+  label, value, sub, icon: Icon, color = '#2563EB', bg = '#EFF6FF',
 }: {
   label: string; value: string; sub?: string
   icon: React.ElementType; color?: string; bg?: string
@@ -50,6 +50,7 @@ function StatCard({
 
 export default function EarningsPage() {
   const [earnings, setEarnings] = useState<DailyEarning[]>([])
+  const [sessions, setSessions] = useState<StreamSession[]>([])
   const [loading, setLoading] = useState(true)
   const [timeframe, setTimeframe] = useState<Timeframe>('daily')
   const [startDate, setStartDate] = useState(() => {
@@ -60,17 +61,28 @@ export default function EarningsPage() {
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10))
 
   useEffect(() => {
-    fetch('/api/daily-earnings')
-      .then((r) => r.json())
-      .then(setEarnings)
+    Promise.all([
+      fetch('/api/daily-earnings').then((r) => r.json()),
+      fetch('/api/sessions').then((r) => r.json()),
+    ])
+      .then(([earningsData, sessionsData]) => {
+        setEarnings(earningsData)
+        setSessions(Array.isArray(sessionsData) ? sessionsData : [])
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
 
-  // Filter by date range
+  // Filter earnings by date range
   const filtered = useMemo(
     () => earnings.filter((e) => e.earnings_date >= startDate && e.earnings_date <= endDate),
     [earnings, startDate, endDate]
+  )
+
+  // Filter sessions to same date range
+  const filteredSessions = useMemo(
+    () => sessions.filter((s) => s.session_date >= startDate && s.session_date <= endDate),
+    [sessions, startDate, endDate]
   )
 
   // Build chart data based on timeframe
@@ -108,6 +120,13 @@ export default function EarningsPage() {
   const bestDay = filtered.length > 0
     ? filtered.reduce((m, e) => (e.total_usd > m.total_usd ? e : m))
     : null
+
+  // True hourly rate
+  const totalStreamMins = filteredSessions.reduce((s, sess) => s + (sess.stream_length_minutes ?? 0), 0)
+  const totalPrepMins = filteredSessions.reduce((s, sess) => s + ((sess as any).prep_time_minutes ?? 0), 0)
+  const hasPrepData = totalPrepMins > 0
+  const totalMins = totalStreamMins + totalPrepMins
+  const hourlyRate = totalMins > 0 ? (totalUSD / totalMins) * 60 : null
 
   const setLast = (days: number) => {
     const end = new Date()
@@ -178,7 +197,7 @@ export default function EarningsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard label="Total Earned" value={formatUSD(totalUSD)} icon={TrendingUp} />
         <StatCard
           label="Best Day"
@@ -196,6 +215,12 @@ export default function EarningsPage() {
           label="Stream Days"
           value={filtered.length.toString()}
           icon={Calendar} color="#3B82F6" bg="#EFF6FF"
+        />
+        <StatCard
+          label="True Hourly Rate"
+          value={hourlyRate !== null ? formatUSD(hourlyRate) + '/hr' : '—'}
+          sub={hourlyRate !== null ? (hasPrepData ? 'Including prep time' : 'Stream time only') : 'No session data'}
+          icon={Clock} color="#8B5CF6" bg="#F5F3FF"
         />
       </div>
 
@@ -218,7 +243,7 @@ export default function EarningsPage() {
               />
               <YAxis stroke="#D1D5DB" tick={{ fontSize: 11, fill: '#9CA3AF' }} />
               <Tooltip {...TOOLTIP_STYLE} formatter={(v) => [formatUSD(v as number), 'USD']} />
-              <Bar dataKey="usd" fill="#F97B6B" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="usd" fill="#2563EB" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -246,7 +271,7 @@ export default function EarningsPage() {
               />
               <YAxis stroke="#D1D5DB" tick={{ fontSize: 11, fill: '#9CA3AF' }} />
               <Tooltip {...TOOLTIP_STYLE} formatter={(v) => [formatUSD(v as number), 'Total']} />
-              <Line type="monotone" dataKey="total" stroke="#F97B6B" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: '#F97B6B' }} />
+              <Line type="monotone" dataKey="total" stroke="#2563EB" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: '#2563EB' }} />
             </LineChart>
           </ResponsiveContainer>
         </div>

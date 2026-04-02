@@ -86,7 +86,7 @@ export function OverviewCharts({ sessions, earnings }: OverviewChartsProps) {
     if (t < 0.25) return '#FCDDD9'
     if (t < 0.5) return '#FAB4AD'
     if (t < 0.75) return '#F88F84'
-    return '#F97B6B'
+    return '#2563EB'
   }
 
   // --- Earnings by day of week ---
@@ -118,10 +118,10 @@ export function OverviewCharts({ sessions, earnings }: OverviewChartsProps) {
               <Line
                 type="monotone"
                 dataKey="earnings"
-                stroke="#F97B6B"
+                stroke="#2563EB"
                 strokeWidth={2.5}
                 dot={false}
-                activeDot={{ r: 4, fill: '#F97B6B' }}
+                activeDot={{ r: 4, fill: '#2563EB' }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -143,7 +143,7 @@ export function OverviewCharts({ sessions, earnings }: OverviewChartsProps) {
                 {...chartStyle()}
                 formatter={(v) => [formatUSD(v as number), 'Earnings']}
               />
-              <Bar dataKey="usd" fill="#F97B6B" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="usd" fill="#2563EB" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -168,7 +168,7 @@ export function OverviewCharts({ sessions, earnings }: OverviewChartsProps) {
                   type="monotone"
                   dataKey="avgViewers"
                   name="Avg Viewers"
-                  stroke="#F97B6B"
+                  stroke="#2563EB"
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4 }}
@@ -198,7 +198,7 @@ export function OverviewCharts({ sessions, earnings }: OverviewChartsProps) {
                 {...chartStyle()}
                 formatter={(v) => [formatUSD(v as number), 'Earnings']}
               />
-              <Bar dataKey="earnings" fill="#F97B6B" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="earnings" fill="#2563EB" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -245,7 +245,7 @@ export function OverviewCharts({ sessions, earnings }: OverviewChartsProps) {
             {/* Legend */}
             <div className="flex items-center gap-2 mt-3 ml-8">
               <span className="text-[10px] text-gray-400">Less</span>
-              {['#F3F4F6', '#FCDDD9', '#FAB4AD', '#F88F84', '#F97B6B'].map((c) => (
+              {['#F3F4F6', '#FCDDD9', '#FAB4AD', '#F88F84', '#2563EB'].map((c) => (
                 <div key={c} style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: c }} />
               ))}
               <span className="text-[10px] text-gray-400">More</span>

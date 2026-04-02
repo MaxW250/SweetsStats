@@ -11,7 +11,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        coral: '#F97B6B',
+        brand: '#2563EB',
       },
       fontFamily: {
         serif: ['var(--font-dm-serif)', 'serif'],
@@ -26,7 +26,7 @@ const config: Config = {
         light: {
           colors: {
             primary: {
-              DEFAULT: '#F97B6B',
+              DEFAULT: '#2563EB',
               foreground: '#ffffff',
             },
           },

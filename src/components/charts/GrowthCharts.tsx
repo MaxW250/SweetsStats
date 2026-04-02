@@ -88,7 +88,7 @@ export function GrowthCharts({ sessions, goals }: GrowthChartsProps) {
             <Tooltip
               contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB' }}
             />
-            <Bar dataKey="followers" fill="#F97B6B" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="followers" fill="#2563EB" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -108,9 +108,9 @@ export function GrowthCharts({ sessions, goals }: GrowthChartsProps) {
             <Line
               type="monotone"
               dataKey="avgViewers"
-              stroke="#F97B6B"
+              stroke="#2563EB"
               strokeWidth={2}
-              dot={{ fill: '#F97B6B', r: 4 }}
+              dot={{ fill: '#2563EB', r: 4 }}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -131,9 +131,9 @@ export function GrowthCharts({ sessions, goals }: GrowthChartsProps) {
             <Line
               type="monotone"
               dataKey="bestRank"
-              stroke="#F97B6B"
+              stroke="#2563EB"
               strokeWidth={2}
-              dot={{ fill: '#F97B6B', r: 4 }}
+              dot={{ fill: '#2563EB', r: 4 }}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -151,7 +151,7 @@ export function GrowthCharts({ sessions, goals }: GrowthChartsProps) {
             <Tooltip
               contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB' }}
             />
-            <Bar dataKey="hours" fill="#F97B6B" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="hours" fill="#2563EB" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -172,7 +172,7 @@ export function GrowthCharts({ sessions, goals }: GrowthChartsProps) {
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className="bg-coral h-2 rounded-full transition-all"
+                    className="bg-brand h-2 rounded-full transition-all"
                     style={{
                       width: `${Math.min((goal.current_value / goal.target_value) * 100, 100)}%`,
                     }}

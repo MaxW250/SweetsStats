@@ -171,7 +171,7 @@ export default function ImportPage() {
                 <select
                   value={dataType}
                   onChange={(e) => setDataType(e.target.value as DataType)}
-                  className="w-full md:w-64 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-coral bg-white"
+                  className="w-full md:w-64 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand bg-white"
                 >
                   {DATA_TYPE_OPTIONS.map((opt) => (
                     <option key={opt.key} value={opt.key}>
@@ -187,7 +187,7 @@ export default function ImportPage() {
                   Choose CSV file
                 </label>
                 <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 px-4 py-2 bg-coral text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-[#e86a5a] transition-colors">
+                  <label className="flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-[#1d4ed8] transition-colors">
                     <Upload size={16} />
                     {csvFile ? 'Change file' : 'Choose file'}
                     <input
@@ -286,7 +286,7 @@ export default function ImportPage() {
                 <Button
                   onPress={handleImport}
                   isLoading={isImporting}
-                  className="bg-coral text-white font-medium w-full md:w-auto px-8"
+                  className="bg-brand text-white font-medium w-full md:w-auto px-8"
                   radius="lg"
                   size="md"
                 >

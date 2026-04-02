@@ -54,7 +54,7 @@ export function TipperForm({ onSubmit, onSuccess, isLoading = false }: TipperFor
           onChange={(e) =>
             setFormData({ ...formData, username: e.target.value })
           }
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           required
         />
       </div>
@@ -70,7 +70,7 @@ export function TipperForm({ onSubmit, onSuccess, isLoading = false }: TipperFor
             onChange={(e) =>
               setFormData({ ...formData, total_tokens_all_time: parseInt(e.target.value) })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
         <div>
@@ -84,7 +84,7 @@ export function TipperForm({ onSubmit, onSuccess, isLoading = false }: TipperFor
             onChange={(e) =>
               setFormData({ ...formData, total_usd_all_time: parseFloat(e.target.value) })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
       </div>
@@ -100,7 +100,7 @@ export function TipperForm({ onSubmit, onSuccess, isLoading = false }: TipperFor
             onChange={(e) =>
               setFormData({ ...formData, number_of_tips: parseInt(e.target.value) })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
       </div>
@@ -116,7 +116,7 @@ export function TipperForm({ onSubmit, onSuccess, isLoading = false }: TipperFor
             onChange={(e) =>
               setFormData({ ...formData, biggest_single_tip_tokens: parseInt(e.target.value) })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
         <div>
@@ -130,7 +130,7 @@ export function TipperForm({ onSubmit, onSuccess, isLoading = false }: TipperFor
             onChange={(e) =>
               setFormData({ ...formData, biggest_single_tip_usd: parseFloat(e.target.value) })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
       </div>
@@ -146,7 +146,7 @@ export function TipperForm({ onSubmit, onSuccess, isLoading = false }: TipperFor
             onChange={(e) =>
               setFormData({ ...formData, first_seen_date: e.target.value })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
         <div>
@@ -159,7 +159,7 @@ export function TipperForm({ onSubmit, onSuccess, isLoading = false }: TipperFor
             onChange={(e) =>
               setFormData({ ...formData, last_seen_date: e.target.value })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
       </div>
@@ -174,14 +174,14 @@ export function TipperForm({ onSubmit, onSuccess, isLoading = false }: TipperFor
             setFormData({ ...formData, notes: e.target.value })
           }
           rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coral"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
         />
       </div>
 
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full bg-coral hover:bg-[#e86a5a] text-white font-medium py-2 rounded-lg transition-colors disabled:opacity-50"
+        className="w-full bg-brand hover:bg-[#1d4ed8] text-white font-medium py-2 rounded-lg transition-colors disabled:opacity-50"
       >
         {isLoading ? 'Creating...' : 'Add Tipper'}
       </button>
